@@ -26,16 +26,11 @@ it succeeds the game is live at:
 https://xdsliperz1830-eng.github.io/Endlessdriving/
 ```
 
-**This repository is currently private.** GitHub Pages only serves private
-repositories on a paid plan (Pro, Team, or Enterprise). On a free account the
-deploy will fail until the repository is made public under
-*Settings → General → Danger Zone → Change visibility*.
-
-The workflow tries to enable Pages itself on its first run. Where that is not
-permitted (as on a private repository) it skips the deploy and explains why in
-the run summary rather than failing — so a red build never means "the game is
-broken". To enable Pages by hand, set *Settings → Pages → Source* to
-**GitHub Actions** and re-run the workflow.
+The workflow enables Pages itself on its first run. Where that is not
+permitted — GitHub Pages only serves *private* repositories on a paid plan — it
+skips the deploy and explains why in the run summary rather than failing, so a
+red build never means "the game is broken". To enable Pages by hand, set
+*Settings → Pages → Source* to **GitHub Actions** and re-run the workflow.
 
 There is no build step, so *Settings → Pages → Source → Deploy from a branch*
 (branch: the default branch, folder: `/ (root)`) also works and needs no
