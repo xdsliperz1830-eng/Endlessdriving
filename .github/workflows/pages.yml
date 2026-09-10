@@ -29,37 +29,51 @@ jobs:
       ready: ${{ steps.check.outputs.ready }}
     steps:
       - name: Check that Pages is available
-        # Pages cannot be turned on from a workflow for every repository (a
-        # private repository on a free plan cannot use Pages at all), so try to
-        # enable it and, if that is not permitted, report why rather than
-        # failing the run with an opaque API error.
+        # Pages has to be switched on by a repository admin; a workflow's own
+        # GITHUB_TOKEN is not allowed to create the site. Report what is
+        # actually configured so a skipped deploy explains itself.
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
-            echo "Pages is already enabled."
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          elif gh api -X POST "repos/$GITHUB_REPOSITORY/pages" \
-                 -f 'build_type=workflow' >/dev/null 2>&1; then
-            echo "Pages was not enabled; enabled it for this repository."
-            echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
+          if ! cfg=$(gh api "repos/$GITHUB_REPOSITORY/pages" 2>/dev/null); then
             echo "ready=false" >> "$GITHUB_OUTPUT"
             {
               echo "### GitHub Pages is not enabled"
               echo
-              echo "Nothing was published, because Pages is off for this"
-              echo "repository and this workflow is not permitted to turn it on."
-              echo
-              echo "- GitHub Pages only serves **private** repositories on a paid"
-              echo "  plan. If this repository is private on a free account, make"
-              echo "  it public under **Settings → General → Change visibility**."
-              echo "- Then set **Settings → Pages → Source** to **GitHub Actions**."
-              echo
-              echo "Re-run this workflow afterwards and the site will deploy."
+              echo "Nothing was published. Turn Pages on at **Settings → Pages**"
+              echo "and set **Source** to **GitHub Actions**, then re-run this"
+              echo "workflow. Note that Pages only serves *private* repositories"
+              echo "on a paid plan."
             } >> "$GITHUB_STEP_SUMMARY"
-            echo "::warning::GitHub Pages is not enabled for this repository - skipping deploy. See the run summary."
+            echo "::warning::GitHub Pages is not enabled - skipping deploy."
+            exit 0
+          fi
+
+          build_type=$(echo "$cfg" | jq -r '.build_type // "legacy"')
+          site_url=$(echo "$cfg" | jq -r '.html_url // "unknown"')
+          echo "Pages is enabled. build_type=$build_type url=$site_url"
+
+          if [ "$build_type" = "workflow" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif gh api -X PUT "repos/$GITHUB_REPOSITORY/pages" \
+                 -f 'build_type=workflow' >/dev/null 2>&1; then
+            echo "Switched the Pages source from '$build_type' to GitHub Actions."
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            # Pages is serving the branch directly. That already publishes the
+            # game, so leave it alone rather than fighting over the source.
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            {
+              echo "### Pages is building from a branch, not from Actions"
+              echo
+              echo "The site is published at <$site_url> by GitHub's own"
+              echo "branch build, so this workflow has nothing to do."
+              echo
+              echo "To publish through this workflow instead, set"
+              echo "**Settings → Pages → Source** to **GitHub Actions**."
+            } >> "$GITHUB_STEP_SUMMARY"
+            echo "::notice::Pages builds from a branch ($build_type); the site is at $site_url. Skipping the Actions deploy."
           fi
 
   deploy:
