@@ -173,12 +173,15 @@
   }
 
   /* Centre banner for milestones / overdrive / records */
+  /* Banners sit BELOW the player car. The band from the horizon down to the
+     car is where oncoming traffic is read, and anything centred in it hides
+     exactly what you need to see; the road behind you is dead space. */
   #banner {
     position: absolute;
-    top: 27%;
-    left: 0; right: 0;
+    bottom: 22%;
+    left: 6%; right: 6%;
     text-align: center;
-    font-size: clamp(22px, 7vw, 34px);
+    font-size: clamp(20px, 6.4vw, 32px);
     font-weight: 800;
     letter-spacing: 0.04em;
     color: var(--amber);
@@ -1252,6 +1255,7 @@
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
     creditsRun = 0; overdrives = 0; earnedThisRun = [];
+    clearBanners();
     continues = 0; invuln = 0;
     mood = 'normal'; moodTimer = 6; surges = 0;
     weather = 'clear'; weatherIdx = 0; nextWeather = 1800; weatherMix = 0; rainDrops = [];
@@ -1850,7 +1854,7 @@
     save.credits += gained;
     save.totals.credits += gained;
     score += gained * 5;
-    popup('+' + gained, xAt(p.lat, PLAYER_T), playerY - playerHalfPx * 3.8, '#2ee6d6', 14);
+    popup('+' + gained, p.lat >= px ? 1 : -1, '#2ee6d6', 14);
     sfxCredit(p.value);
     creditFlash = 0.4;
     checkGoals();
@@ -1903,8 +1907,19 @@
   }
 
   // ------------------------------------------------------------- scoring
-  function popup(text, x, y, color, size) {
-    popups.push({ text: text, x: x, y: y, color: color, size: size || 15, life: 0.9 });
+  // Popups are parked beside the car rather than floating up the middle of
+  // the road: the same reasoning as the banner, and it keeps them off the
+  // bodywork too. `side` is -1 for left, 1 for right.
+  function popup(text, side, color, size) {
+    // Beside the car, but never so far out that it clips the screen edge.
+    var pad = Math.max(30, W * 0.11);
+    var x = xAt(px, PLAYER_T) + side * playerHalfPx * 2.1;
+    popups.push({
+      text: text,
+      x: Math.max(pad, Math.min(W - pad, x)),
+      y: playerY - playerHalfPx * 1.9,
+      color: color, size: size || 15, life: 0.85
+    });
   }
 
   function nearMiss(o) {
@@ -1921,7 +1936,7 @@
     else boost = Math.min(1, boost + 0.15 * car.boost);
     flash = 0.5;
     flashSide = o.lat > px ? 1 : -1;
-    popup('+' + pts, xAt(o.lat, PLAYER_T), playerY - playerHalfPx * 3.4, '#ffc02e', 15 + Math.min(mult, 6));
+    popup('+' + pts, o.lat >= px ? 1 : -1, '#ffc02e', 15 + Math.min(mult, 6));
     sfxNearMiss();
     sfxCombo(combo);
     comboChip.classList.remove('pop');
@@ -1941,12 +1956,33 @@
     buzz(45);
   }
 
+  // Nine different things raise banners and several can land on the same
+  // frame (a milestone inside a rush hour while a goal tier completes), so
+  // they queue instead of overwriting each other. The queue is capped: a
+  // backlog that outlives the moment is worse than a dropped line.
+  var bannerQueue = [], bannerTimer = null;
+
   function showBanner(text, color) {
-    banner.textContent = text;
-    banner.style.color = color || '#ffb340';
+    bannerQueue.push([text, color || '#ffc02e']);
+    if (bannerQueue.length > 3) bannerQueue.splice(0, bannerQueue.length - 3);
+    if (!bannerTimer) drainBanner();
+  }
+
+  function drainBanner() {
+    if (!bannerQueue.length) { bannerTimer = null; return; }
+    var b = bannerQueue.shift();
+    banner.textContent = b[0];
+    banner.style.color = b[1];
     banner.classList.remove('show');
     void banner.offsetWidth;
     banner.classList.add('show');
+    bannerTimer = setTimeout(drainBanner, 1150);
+  }
+
+  function clearBanners() {
+    bannerQueue.length = 0;
+    if (bannerTimer) { clearTimeout(bannerTimer); bannerTimer = null; }
+    banner.classList.remove('show');
   }
 
   function updateCombo() {
@@ -2195,7 +2231,7 @@
     }
     for (var j = popups.length - 1; j >= 0; j--) {
       var q = popups[j];
-      q.y -= 46 * dt;
+      q.y -= 24 * dt;          // a short lift, not a climb up the road
       q.life -= dt;
       if (q.life <= 0) popups.splice(j, 1);
     }
@@ -2370,7 +2406,8 @@
         ctx.fillStyle = '#8cfff0';
         ctx.font = '800 ' + Math.max(9, gh * 0.07).toFixed(0) + 'px system-ui, sans-serif';
         ctx.textAlign = 'center';
-        ctx.fillText('BEST', W / 2, gy - gh * 0.075);
+        // Offset from the centre lane so the label never hides a car in it.
+        ctx.fillText('BEST', W / 2 - gh * 0.62, gy - gh * 0.075);
         ctx.textAlign = 'left';
         ctx.globalAlpha = 1;
       }
@@ -2409,7 +2446,7 @@
     ctx.textAlign = 'center';
     for (var ui = 0; ui < popups.length; ui++) {
       var u = popups[ui];
-      ctx.globalAlpha = Math.max(0, Math.min(1, u.life / 0.9));
+      ctx.globalAlpha = Math.max(0, Math.min(1, u.life / 0.85));
       ctx.font = '800 ' + u.size + 'px system-ui, sans-serif';
       ctx.lineWidth = 3;
       ctx.strokeStyle = 'rgba(0,0,0,0.65)';
