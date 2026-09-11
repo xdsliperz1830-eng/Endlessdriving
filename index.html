@@ -309,6 +309,12 @@
     transition: transform 0.12s ease;
   }
   button.play-btn:active { transform: scale(0.96); }
+  button.continue-btn {
+    background: var(--mint);
+    color: #05221e;
+    box-shadow: 0 8px 24px rgba(46,230,214,0.3);
+    margin-bottom: 10px;
+  }
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
 
   /* ---------------- Credits / garage / goals ---------------- */
@@ -409,11 +415,48 @@
   .goal-row.done .goal-tick { background: var(--mint); border-color: var(--mint); color: #06231e; }
   .goal-main { flex: 1 1 auto; min-width: 0; }
   .goal-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .goal-tier {
+    font-size: 9px; font-weight: 700; letter-spacing: 0.06em;
+    color: var(--dim); background: rgba(255,255,255,0.07);
+    border-radius: 4px; padding: 1px 5px; margin-left: 7px; vertical-align: 1px;
+  }
+  .goal-row.done .goal-tier { color: var(--mint); background: rgba(46,230,214,0.12); }
   .goal-row.done .goal-name { color: var(--mint); }
   .goal-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
   .goal-bar { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
   .goal-bar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
   .goal-reward { font-size: 12px; font-weight: 700; color: var(--mint); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+  .daily-card {
+    background: rgba(255,192,46,0.08);
+    border: 1px solid rgba(255,192,46,0.32);
+    border-radius: 12px;
+    padding: 9px 16px;
+    margin: 0 0 18px;
+    max-width: 330px;
+  }
+  .daily-card.done { background: rgba(46,230,214,0.08); border-color: rgba(46,230,214,0.35); }
+  .daily-head { font-size: 9px; letter-spacing: 0.12em; color: var(--amber); font-weight: 700; }
+  .daily-card.done .daily-head { color: var(--mint); }
+  .daily-text { font-size: 13px; color: var(--text); margin: 3px 0 2px; }
+  .daily-reward { font-size: 11px; font-weight: 700; color: var(--amber); }
+  .daily-card.done .daily-reward { color: var(--mint); }
+
+  #dailyHud {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 118px);
+    right: 18px;
+    max-width: 46%;
+    text-align: right;
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: var(--amber);
+    text-shadow: 0 1px 6px rgba(0,0,0,0.9);
+    pointer-events: none;
+    z-index: 5;
+    opacity: 0.85;
+  }
+  #dailyHud.done { color: var(--mint); }
 
   #earned { font-size: 12px; color: var(--mint); margin: 0 0 12px; min-height: 0; }
   #earned b { color: var(--amber); }
@@ -447,6 +490,7 @@
   <div id="boostWrap"><div id="boostFill"></div></div>
   <div id="speedVal">0 km/h</div>
   <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
+  <div id="dailyHud"></div>
   <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
   <button id="muteBtn" aria-label="Toggle sound">&#9834;</button>
 
@@ -472,6 +516,11 @@
   <div class="overlay" id="startOverlay">
     <h1 class="logo"><span class="bad">BAD</span><span class="driver">DRIVER</span></h1>
     <p>Weave through neon traffic. Shave past cars to build your combo, sweep up the coins, and the engine opens up.</p>
+    <div class="daily-card" id="dailyCard">
+      <div class="daily-head">DAILY CHALLENGE</div>
+      <div class="daily-text" id="dailyText">&mdash;</div>
+      <div class="daily-reward" id="dailyReward">&#9670; 500</div>
+    </div>
     <p class="tips">
       <b>Squeeze past</b> a car for bonus points<br>
       <b>Chain near misses</b> to raise the multiplier<br>
@@ -512,6 +561,7 @@
     </div>
     <div id="endNote"></div>
     <div id="earned"></div>
+    <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE &#9670; 400</button>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
     <div class="menu-row">
       <button class="ghost-btn" id="garageBtn2">GARAGE</button>
@@ -557,9 +607,11 @@
   var startBtn = $('startBtn'), retryBtn = $('retryBtn');
   var endTitle = $('endTitle'), finalScore = $('finalScore'), finalBest = $('finalBest');
   var sDist = $('sDist'), sNear = $('sNear'), sCombo = $('sCombo'), sSpeed = $('sSpeed');
-  var endNote = $('endNote'), earned = $('earned');
+  var endNote = $('endNote'), earned = $('earned'), continueBtn = $('continueBtn');
   var creditsHud = $('creditsHud'), creditsVal = $('creditsVal');
   var garagePanel = $('garagePanel'), goalsPanel = $('goalsPanel');
+  var dailyCard = $('dailyCard'), dailyText = $('dailyText'), dailyReward = $('dailyReward');
+  var dailyHud = $('dailyHud');
   var pauseOverlay = $('pauseOverlay'), pauseBtn = $('pauseBtn');
   var carGrid = $('carGrid'), goalList = $('goalList');
   var garageCredits = $('garageCredits'), goalsCredits = $('goalsCredits');
@@ -636,18 +688,113 @@
 
   // Goals pay out in credits, credits buy cars. One currency, one ladder.
   // `run` goals read the stats of a single run; `life` goals read the totals.
+  // Goals are ladders rather than one-offs, so progression never dead-ends.
+  // Each tier is [target, reward]; a goal is finished only once every tier is
+  // done, and tiers with a natural ceiling (top speed, the x8 multiplier cap)
+  // simply stop at one that is actually reachable.
+  function ladder(base, reward, mult, rewardMult, n) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      out.push([Math.round(base * Math.pow(mult, i)), Math.round(reward * Math.pow(rewardMult, i))]);
+    }
+    return out;
+  }
+
   var GOALS = [
-    { id: 'first_shift', name: 'First Shift',  desc: 'Finish a run',                 reward: 50,  scope: 'life', stat: 'runs',    target: 1 },
-    { id: 'century',     name: 'Century',      desc: 'Travel 1,000m in one run',     reward: 75,  scope: 'run',  stat: 'dist',    target: 1000 },
-    { id: 'close_shave', name: 'Close Shave',  desc: '10 near misses in one run',    reward: 100, scope: 'run',  stat: 'near',    target: 10 },
-    { id: 'collector',   name: 'Collector',    desc: 'Collect 100 credits in total', reward: 100, scope: 'life', stat: 'credits', target: 100 },
-    { id: 'chain_gang',  name: 'Chain Gang',   desc: 'Reach a \u00d75 multiplier',       reward: 125, scope: 'run',  stat: 'mult',    target: 5 },
-    { id: 'overdriven',  name: 'Overdriven',   desc: 'Trigger overdrive 3x in a run', reward: 150, scope: 'run', stat: 'od',      target: 3 },
-    { id: 'ton_up',      name: 'Ton Up',       desc: 'Hit 450 km/h',                 reward: 150, scope: 'run',  stat: 'speed',   target: 450 },
-    { id: 'long_haul',   name: 'Long Haul',    desc: 'Travel 5,000m in total',       reward: 200, scope: 'life', stat: 'dist',    target: 5000 },
-    { id: 'untouchable', name: 'Untouchable',  desc: 'Travel 2,000m in one run',     reward: 300, scope: 'run',  stat: 'dist',    target: 2000 },
-    { id: 'high_roller', name: 'High Roller',  desc: 'Score 25,000 in one run',      reward: 400, scope: 'run',  stat: 'score',   target: 25000 }
+    { id: 'first_shift', name: 'Shifts Worked', unit: '',      scope: 'life', stat: 'runs',
+      desc: 'Finish {t} runs',            tiers: ladder(1, 50, 4, 1.7, 7) },
+    { id: 'century',     name: 'Century',      unit: 'm',      scope: 'run',  stat: 'dist',
+      desc: 'Travel {t}m in one run',     tiers: ladder(1000, 75, 1.9, 1.7, 8) },
+    { id: 'close_shave', name: 'Close Shave',  unit: '',       scope: 'run',  stat: 'near',
+      desc: '{t} near misses in one run', tiers: ladder(10, 100, 2, 1.6, 7) },
+    { id: 'collector',   name: 'Collector',    unit: '',       scope: 'life', stat: 'credits',
+      desc: 'Collect {t} credits in total', tiers: ladder(100, 100, 3, 1.7, 8) },
+    { id: 'chain_gang',  name: 'Chain Gang',   unit: '',       scope: 'run',  stat: 'mult',
+      desc: 'Reach a \u00d7{t} multiplier',   tiers: [[5, 125], [6, 200], [7, 320], [8, 500]] },
+    { id: 'overdriven',  name: 'Overdriven',   unit: '',       scope: 'run',  stat: 'od',
+      desc: 'Trigger overdrive {t}x in a run', tiers: ladder(3, 150, 2, 1.7, 6) },
+    { id: 'ton_up',      name: 'Ton Up',       unit: ' km/h',  scope: 'run',  stat: 'speed',
+      desc: 'Hit {t} km/h',               tiers: [[450, 150], [550, 250], [650, 400], [720, 650]] },
+    { id: 'long_haul',   name: 'Long Haul',    unit: 'm',      scope: 'life', stat: 'dist',
+      desc: 'Travel {t}m in total',       tiers: ladder(5000, 200, 2.5, 1.8, 8) },
+    { id: 'high_roller', name: 'High Roller',  unit: '',       scope: 'run',  stat: 'score',
+      desc: 'Score {t} in one run',       tiers: ladder(25000, 400, 2.4, 1.8, 8) }
   ];
+
+  function goalLevel(id) { return save.goals[id] | 0; }
+  function goalMaxed(g) { return goalLevel(g.id) >= g.tiers.length; }
+  function goalTier(g) { return g.tiers[Math.min(goalLevel(g.id), g.tiers.length - 1)]; }
+  function goalTarget(g) { return goalTier(g)[0]; }
+  function goalReward(g) { return goalTier(g)[1]; }
+  function goalText(g) {
+    return g.desc.replace('{t}', goalTarget(g).toLocaleString());
+  }
+  // ------------------------------------------------------------- daily
+  // One objective per calendar day, picked deterministically from the date so
+  // it needs no server and everyone on a given day gets the same task.
+  var DAILY = [
+    { stat: 'dist',  text: 'Travel {t}m in a single run',     targets: [1200, 1800, 2600, 3500] },
+    { stat: 'near',  text: 'Shave past {t} cars in one run',  targets: [12, 18, 25, 35] },
+    { stat: 'coins', text: 'Collect {t} credits in one run',  targets: [60, 100, 150, 220] },
+    { stat: 'od',    text: 'Trigger overdrive {t}x in a run', targets: [2, 3, 4, 5] },
+    { stat: 'speed', text: 'Reach {t} km/h',                  targets: [420, 500, 580, 660] },
+    { stat: 'score', text: 'Score {t} in a single run',       targets: [8000, 15000, 26000, 40000] },
+    { stat: 'mult',  text: 'Reach a \u00d7{t} multiplier',        targets: [4, 5, 6, 7] }
+  ];
+  var DAILY_REWARD = 500;
+
+  function todayKey() {
+    var d = new Date();
+    return d.getFullYear() + '-' + (d.getMonth() + 1) + '-' + d.getDate();
+  }
+
+  // A small string hash, so the same date always yields the same challenge.
+  function hashStr(s) {
+    var h = 2166136261;
+    for (var i = 0; i < s.length; i++) {
+      h ^= s.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0);
+  }
+
+  function dailyFor(key) {
+    var h = hashStr(key);
+    var spec = DAILY[h % DAILY.length];
+    var target = spec.targets[(h >>> 8) % spec.targets.length];
+    return { stat: spec.stat, target: target, text: spec.text.replace('{t}', target.toLocaleString()) };
+  }
+
+  var daily = null;           // today's challenge, resolved at boot
+  function refreshDaily() {
+    var key = todayKey();
+    if (!save.daily || save.daily.date !== key) {
+      save.daily = { date: key, done: false };
+      persist();
+    }
+    daily = dailyFor(key);
+  }
+  function dailyValue() {
+    return daily.stat === 'coins' ? creditsRun : runStat(daily.stat);
+  }
+  function dailyDone() { return !!(save.daily && save.daily.done); }
+
+  function checkDaily() {
+    if (!daily || dailyDone() || state !== 'playing') return;
+    if (dailyValue() < daily.target) return;
+    save.daily.done = true;
+    save.credits += DAILY_REWARD;
+    earnedThisRun.push({ name: 'Daily Challenge', reward: DAILY_REWARD });
+    showBanner('DAILY DONE  +' + DAILY_REWARD, '#ffc02e');
+    sfxGoal();
+    buzz(45);
+    persist();
+  }
+
+  function goalById(id) {
+    for (var i = 0; i < GOALS.length; i++) if (GOALS[i].id === id) return GOALS[i];
+    return null;
+  }
 
   // ------------------------------------------------------------- storage
   var KEY = 'baddriver_v1';
@@ -657,7 +804,8 @@
   var save = {
     best: 0, bestDist: 0, muted: false,
     credits: 0, car: 'nightshift', owned: ['nightshift'], goals: {},
-    totals: { runs: 0, dist: 0, credits: 0 }
+    totals: { runs: 0, dist: 0, credits: 0 },
+    daily: null
   };
 
   // Every field is type-checked individually, so this reads both the current
@@ -677,12 +825,20 @@
     }
     if (typeof p.car === 'string' && save.owned.indexOf(p.car) !== -1) save.car = p.car;
     if (p.goals && typeof p.goals === 'object') {
-      GOALS.forEach(function (g) { if (p.goals[g.id]) save.goals[g.id] = true; });
+      GOALS.forEach(function (g) {
+        var v = p.goals[g.id];
+        // Saves from before goals had tiers stored a plain boolean.
+        if (v === true) save.goals[g.id] = 1;
+        else if (typeof v === 'number' && v > 0) save.goals[g.id] = Math.min(v, g.tiers.length);
+      });
     }
     if (p.totals && typeof p.totals === 'object') {
       ['runs', 'dist', 'credits'].forEach(function (k) {
         if (typeof p.totals[k] === 'number') save.totals[k] = p.totals[k];
       });
+    }
+    if (p.daily && typeof p.daily.date === 'string') {
+      save.daily = { date: p.daily.date, done: !!p.daily.done };
     }
     return true;
   }
@@ -710,7 +866,7 @@
   loadSave();
 
   function owns(id) { return save.owned.indexOf(id) !== -1; }
-  function goalDone(id) { return !!save.goals[id]; }
+  function goalDone(id) { return goalLevel(id) >= 1; }
 
   // ------------------------------------------------------------- geometry
   // A straight, flat road in one-point perspective. Depth `t` runs 0 (horizon)
@@ -947,8 +1103,8 @@
   var obstacles = [], pickups = [], particles = [], popups = [];
   var dashPhase = 0, waveT = 99, lastOpenLane = 1;
   var shake = 0, flash = 0, flashSide = 0, scraping = 0, creditFlash = 0;
-  var nextMilestone = 500, beatBest = false, deathTimer = 0;
-  var creditsRun = 0, overdrives = 0;
+  var nextMilestone = 500, beatBest = false, deathTimer = 0, lastRunDist = 0;
+  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0;
   // Traffic breathes rather than arriving at a constant rate: a surge packs
   // the waves closer, a breather opens the road up (and pays better).
   var mood = 'normal', moodTimer = 6, surges = 0;
@@ -967,6 +1123,7 @@
     shake = 0; flash = 0; scraping = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     creditsRun = 0; overdrives = 0; earnedThisRun = [];
+    continues = 0; invuln = 0;
     mood = 'normal'; moodTimer = 6; surges = 0;
     applyWheel();
     updateCombo();
@@ -1047,6 +1204,7 @@
       else if (paused) setPaused(false);
       else if (state === 'ready' || state === 'over') start();
     }
+    if (e.key === 'c' || e.key === 'C') doContinue();
     if (e.key === 'p' || e.key === 'P') togglePause();
     if (e.key === 'Escape') {
       if (panelOpen()) closePanels();
@@ -1064,6 +1222,7 @@
   // Tapping anywhere on either overlay restarts — restart friction kills runs.
   startOverlay.addEventListener('click', start);
   endOverlay.addEventListener('click', start);
+  continueBtn.addEventListener('click', function (e) { e.stopPropagation(); doContinue(); });
 
   // ------------------------------------------------------------- menus
   var thumbCache = {};
@@ -1126,35 +1285,60 @@
   }
 
   function goalName(id) {
-    for (var i = 0; i < GOALS.length; i++) if (GOALS[i].id === id) return GOALS[i].name;
-    return id;
+    var g = goalById(id);
+    return g ? g.name : id;
   }
 
   function renderGoals() {
     goalsCredits.textContent = save.credits.toLocaleString();
     goalList.innerHTML = GOALS.map(function (g) {
-      var done = goalDone(g.id);
-      // Only draw a bar where there is a real number behind it: lifetime
-      // totals, plus the two run goals whose personal best we actually store.
+      var maxed = goalMaxed(g), lvl = goalLevel(g.id);
+      var tierLabel = g.tiers.length > 1
+        ? '<span class="goal-tier">' + (maxed ? 'MAXED' : 'TIER ' + (lvl + 1) + '/' + g.tiers.length) + '</span>'
+        : '';
+      // Only draw a bar where a real number backs it: lifetime totals, plus
+      // the two run goals whose personal best is actually stored.
       var have = null;
       if (g.scope === 'life') have = lifeStat(g.stat);
       else if (g.stat === 'score') have = save.best;
       else if (g.stat === 'dist') have = save.bestDist;
       var bar = '';
-      if (!done && have !== null) {
-        var pct = Math.max(0, Math.min(100, have / g.target * 100));
+      if (!maxed && have !== null) {
+        var pct = Math.max(0, Math.min(100, have / goalTarget(g) * 100));
         bar = '<div class="goal-bar"><i style="width:' + pct.toFixed(0) + '%"></i></div>';
       }
-      return '<div class="goal-row' + (done ? ' done' : '') + '">' +
+      return '<div class="goal-row' + (maxed ? ' done' : '') + '">' +
         '<div class="goal-tick">\u2713</div><div class="goal-main">' +
-        '<div class="goal-name">' + g.name + '</div>' +
-        '<div class="goal-desc">' + g.desc + '</div>' + bar +
-        '</div><div class="goal-reward">\u25c6 ' + g.reward + '</div></div>';
+        '<div class="goal-name">' + g.name + tierLabel + '</div>' +
+        '<div class="goal-desc">' + (maxed ? 'Every tier cleared' : goalText(g)) + '</div>' + bar +
+        '</div><div class="goal-reward">' + (maxed ? '\u2014' : '\u25c6 ' + goalReward(g).toLocaleString()) + '</div></div>';
     }).join('');
   }
 
+  function renderDaily() {
+    if (!daily) return;
+    var done = dailyDone();
+    dailyCard.classList.toggle('done', done);
+    dailyText.textContent = done ? 'Done \u2014 come back tomorrow for a new one.' : daily.text;
+    dailyReward.textContent = done ? '\u25c6 ' + DAILY_REWARD + ' claimed' : '\u25c6 ' + DAILY_REWARD;
+  }
+
+  // A quiet progress line during a run, so the daily is not something you have
+  // to remember between screens.
+  function updateDailyHud() {
+    if (!daily) { dailyHud.textContent = ''; return; }
+    if (dailyDone()) {
+      dailyHud.className = 'done';
+      dailyHud.textContent = 'DAILY DONE';
+      return;
+    }
+    dailyHud.className = '';
+    var have = Math.floor(dailyValue());
+    dailyHud.textContent = 'DAILY ' + have.toLocaleString() + ' / ' + daily.target.toLocaleString();
+  }
+
   function openPanel(p) {
-    if (p === garagePanel) renderGarage(); else renderGoals();
+    if (p === garagePanel) renderGarage(); else { renderDaily(); renderGoals(); }
     p.classList.remove('hidden');
   }
   function closePanels() {
@@ -1207,6 +1391,53 @@
     updateHud();
   });
 
+  // ------------------------------------------------------------- continue
+  // A paid second chance. It doubles as the only permanent credit sink, so
+  // credits stay worth collecting long after the garage is full.
+  var CONTINUE_COSTS = [400, 1200, 3000];
+
+  function continueCost() {
+    return continues < CONTINUE_COSTS.length ? CONTINUE_COSTS[continues] : -1;
+  }
+  function canContinue() {
+    var c = continueCost();
+    return c > 0 && save.credits >= c;
+  }
+
+  function doContinue() {
+    if (state !== 'over' || !canContinue()) return;
+    var cost = continueCost();
+    save.credits -= cost;
+    continues++;
+    // The run carries on, so undo the totals this death already banked; the
+    // real ending will record the whole run once.
+    save.totals.runs = Math.max(0, save.totals.runs - 1);
+    save.totals.dist = Math.max(0, save.totals.dist - lastRunDist);
+    persist();
+
+    // Clear the road ahead and give a moment of grace, or you simply die again
+    // on the car you were already touching.
+    obstacles = [];
+    pickups = [];
+    particles = [];
+    px = 0; pvx = 0; steer = 0; wheelAngle = 0;
+    applyWheel();
+    combo = 0; mult = 1; updateCombo();
+    invuln = 2.4;
+    waveT = -0.5;
+    shake = 0;
+    speed = BASE_SPEED;
+
+    state = 'playing';
+    paused = false;
+    endOverlay.classList.add('hidden');
+    pauseBtn.classList.add('on');
+    showBanner('BACK ON THE ROAD', '#2ee6d6');
+    sfxGoal();
+    last = performance.now();
+    updateHud();
+  }
+
   // ------------------------------------------------------------- pause
   var paused = false;
 
@@ -1237,10 +1468,13 @@
   function start() {
     if (state === 'dying' || panelOpen() || paused) return;
     closePanels();
+    refreshDaily();
+    renderDaily();
     resumeAudio();
     reset();
     state = 'playing';
     paused = false;
+    continueBtn.classList.add('hidden');
     pauseOverlay.classList.add('hidden');
     pauseBtn.classList.add('on');
     startOverlay.classList.add('hidden');
@@ -1279,6 +1513,7 @@
     var prevBest = save.best;
     if (isRecord) save.best = s;
     if (d > save.bestDist) save.bestDist = d;
+    lastRunDist = d;
     save.totals.runs += 1;
     save.totals.dist += d;
     checkGoals();               // catches the lifetime goals this run completed
@@ -1308,10 +1543,20 @@
     if (creditsRun > 0) lines.push('Collected <b>\u25c6 ' + creditsRun + '</b>');
     if (earnedThisRun.length) {
       lines.push(earnedThisRun.map(function (g) {
-        return g.name + ' <b>+' + g.reward + '</b>';
+        return g.name + ' <b>+' + g.reward.toLocaleString() + '</b>';
       }).join('<br>'));
     }
     earned.innerHTML = lines.join('<br>');
+
+    var cost = continueCost();
+    var offer = canContinue();
+    continueBtn.classList.toggle('hidden', !offer);
+    if (offer) continueBtn.innerHTML = 'CONTINUE \u25c6 ' + cost.toLocaleString();
+    else if (cost > 0) {
+      // Name the price even when it is out of reach, so the sink is visible.
+      endNote.innerHTML = (endNote.textContent ? endNote.textContent + '<br>' : '') +
+        '<span style="color:#6b7385">Continue costs \u25c6 ' + cost.toLocaleString() + '</span>';
+    }
 
     endOverlay.classList.remove('hidden');
     updateHud();
@@ -1467,20 +1712,25 @@
     return g.scope === 'run' ? runStat(g.stat) : lifeStat(g.stat);
   }
 
-  // Checked live so the payout lands in the moment you earn it.
+  // Checked live so the payout lands in the moment you earn it. A big run can
+  // clear several tiers of the same goal at once, so each one loops.
   function checkGoals() {
+    var awarded = false;
     for (var i = 0; i < GOALS.length; i++) {
       var g = GOALS[i];
-      if (save.goals[g.id]) continue;
-      if (goalValue(g) < g.target) continue;
-      save.goals[g.id] = true;
-      save.credits += g.reward;
-      earnedThisRun.push(g);
-      showBanner(g.name.toUpperCase() + '  +' + g.reward, '#4de2c2');
-      sfxGoal();
-      buzz(35);
-      persist();
+      while (!goalMaxed(g) && goalValue(g) >= goalTarget(g)) {
+        var reward = goalReward(g);
+        save.goals[g.id] = goalLevel(g.id) + 1;
+        save.credits += reward;
+        earnedThisRun.push({ name: g.name, reward: reward });
+        showBanner(g.name.toUpperCase() + '  +' + reward, '#2ee6d6');
+        sfxGoal();
+        buzz(35);
+        awarded = true;
+      }
     }
+    if (awarded) persist();
+    checkDaily();
   }
 
   // ------------------------------------------------------------- scoring
@@ -1547,6 +1797,7 @@
     bestDistVal.textContent = Math.max(save.bestDist, Math.floor(distance)) + ' m';
     speedVal.textContent = Math.round(speed) + ' km/h';
     boostFill.style.width = (overdrive > 0 ? (overdrive / OVERDRIVE_TIME) * 100 : boost * 100) + '%';
+    updateDailyHud();
     if (creditsVal.textContent !== String(save.credits)) {
       creditsVal.textContent = save.credits;
       creditsHud.classList.remove('bump');
@@ -1623,6 +1874,8 @@
       buzz(30);
     }
 
+    if (invuln > 0) invuln = Math.max(0, invuln - dt);
+
     // --- combo decay ---
     if (combo > 0) {
       comboTimer -= dt;
@@ -1677,8 +1930,9 @@
       if (!o.scored && prevT < PLAYER_T && o.t >= PLAYER_T) {
         o.scored = true;
         var dx = Math.abs(o.lat - px);
-        if (dx < hitLat) { crash(); return; }
-        else if (dx < NEAR_LAT) nearMiss(o);
+        if (dx < hitLat) {
+          if (invuln <= 0) { crash(); return; }
+        } else if (dx < NEAR_LAT) nearMiss(o);
       }
     }
 
@@ -2301,6 +2555,8 @@
     ctx.fill();
     ctx.restore();
 
+    // Blink while the grace period from a continue is still running.
+    if (invuln > 0 && Math.floor(invuln * 8) % 2 === 0) ctx.globalAlpha = 0.35;
     var b0 = overdrive > 0 ? '#b6ffee' : car.body[0];
     var b1 = overdrive > 0 ? '#2ee6d6' : car.body[1];
     drawCarBody(w, h, s, b0, b1, '#ff2d34');
@@ -2381,6 +2637,8 @@
     for (var q = 0; q < obstacles.length; q++) obstacles[q].t += 0.24;
   }
   closePanels();          // own the panel state in code, not just in markup
+  refreshDaily();
+  renderDaily();
   bestVal.textContent = save.best.toLocaleString();
   bestDistVal.textContent = save.bestDist + ' m';
   creditsVal.textContent = save.credits;
