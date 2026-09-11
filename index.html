@@ -260,6 +260,113 @@
   button.play-btn:active { transform: scale(0.96); }
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
 
+  /* ---------------- Credits / garage / goals ---------------- */
+  #creditsHud {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 118px);
+    left: 18px;
+    background: var(--ui-bg);
+    border: 1px solid rgba(77,226,194,0.25);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--mint);
+    font-variant-numeric: tabular-nums;
+    backdrop-filter: blur(6px);
+    pointer-events: none;
+    z-index: 5;
+  }
+  #creditsHud.bump { animation: chipPop 0.3s ease; }
+
+  .menu-row { display: flex; gap: 10px; margin-top: 16px; }
+  button.ghost-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: var(--text);
+    padding: 9px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: 22px;
+    cursor: pointer;
+  }
+  button.ghost-btn:active { transform: scale(0.96); }
+
+  /* Panels scroll independently so long lists never push the page wide */
+  .panel {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(#0a0d15, #06080c);
+    z-index: 30;
+    display: flex;
+    flex-direction: column;
+    padding: 0 0 env(safe-area-inset-bottom, 0px);
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: calc(env(safe-area-inset-top, 0px) + 16px) 18px 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.07);
+    flex: 0 0 auto;
+  }
+  .panel-head h2 { margin: 0; font-size: 19px; letter-spacing: 0.02em; color: var(--text); }
+  .panel-credits { font-size: 13px; font-weight: 700; color: var(--mint); font-variant-numeric: tabular-nums; }
+  .panel-body { flex: 1 1 auto; overflow-y: auto; padding: 14px 14px 22px; -webkit-overflow-scrolling: touch; }
+  .panel-foot { flex: 0 0 auto; padding: 12px 18px calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; }
+
+  .car-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(124px, 1fr)); gap: 10px; }
+  .car-card {
+    background: rgba(255,255,255,0.035);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 14px;
+    padding: 11px 10px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+  }
+  .car-card.selected { border-color: var(--mint); background: rgba(77,226,194,0.08); }
+  .car-card.locked { opacity: 0.72; }
+  .car-card svg { width: 38px; height: 56px; display: block; margin: 0 auto 7px; }
+  .car-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .car-blurb { font-size: 10px; color: var(--dim); line-height: 1.35; margin: 4px 0 8px; min-height: 40px; }
+  .car-stats { display: flex; flex-direction: column; gap: 3px; margin-bottom: 9px; }
+  .stat-line { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--dim); letter-spacing: 0.04em; }
+  .stat-line .bar { flex: 1; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
+  .stat-line .bar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
+  .car-action { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 6px 0; border-radius: 8px; }
+  .car-action.owned { color: var(--dim); }
+  .car-action.active { color: var(--mint); }
+  .car-action.buy { background: var(--amber); color: #1a1206; }
+  .car-action.need { color: #6b7385; }
+
+  .goal-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+  }
+  .goal-tick {
+    width: 22px; height: 22px; flex: 0 0 auto;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.18);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: transparent;
+  }
+  .goal-row.done .goal-tick { background: var(--mint); border-color: var(--mint); color: #06231e; }
+  .goal-main { flex: 1 1 auto; min-width: 0; }
+  .goal-name { font-size: 13px; font-weight: 700; color: var(--text); }
+  .goal-row.done .goal-name { color: var(--mint); }
+  .goal-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
+  .goal-bar { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
+  .goal-bar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
+  .goal-reward { font-size: 12px; font-weight: 700; color: var(--mint); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+
+  #earned { font-size: 12px; color: var(--mint); margin: 0 0 12px; min-height: 0; }
+  #earned b { color: var(--amber); }
+
   .hidden { display: none !important; }
 </style>
 </head>
@@ -288,6 +395,7 @@
 
   <div id="boostWrap"><div id="boostFill"></div></div>
   <div id="speedVal">0 km/h</div>
+  <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
   <button id="muteBtn" aria-label="Toggle sound">&#9834;</button>
 
   <div id="banner"></div>
@@ -318,6 +426,10 @@
       <b>Fill the bar</b> to trigger OVERDRIVE
     </p>
     <button class="play-btn" id="startBtn">START ENGINE</button>
+    <div class="menu-row">
+      <button class="ghost-btn" id="garageBtn">GARAGE</button>
+      <button class="ghost-btn" id="goalsBtn">GOALS</button>
+    </div>
     <div class="restart-hint">SPACE or tap to drive</div>
   </div>
 
@@ -340,8 +452,31 @@
       <div><div class="n" id="sSpeed">0</div><div class="l">TOP KM/H</div></div>
     </div>
     <div id="endNote"></div>
+    <div id="earned"></div>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
+    <div class="menu-row">
+      <button class="ghost-btn" id="garageBtn2">GARAGE</button>
+      <button class="ghost-btn" id="goalsBtn2">GOALS</button>
+    </div>
     <div class="restart-hint">SPACE or tap anywhere</div>
+  </div>
+
+  <div class="panel hidden" id="garagePanel">
+    <div class="panel-head">
+      <h2>GARAGE</h2>
+      <div class="panel-credits">&#9670; <span id="garageCredits">0</span></div>
+    </div>
+    <div class="panel-body"><div class="car-grid" id="carGrid"></div></div>
+    <div class="panel-foot"><button class="play-btn" id="garageClose">BACK</button></div>
+  </div>
+
+  <div class="panel hidden" id="goalsPanel">
+    <div class="panel-head">
+      <h2>GOALS</h2>
+      <div class="panel-credits">&#9670; <span id="goalsCredits">0</span></div>
+    </div>
+    <div class="panel-body"><div id="goalList"></div></div>
+    <div class="panel-foot"><button class="play-btn" id="goalsClose">BACK</button></div>
   </div>
 </div>
 <script>
@@ -363,7 +498,11 @@
   var startBtn = $('startBtn'), retryBtn = $('retryBtn');
   var endTitle = $('endTitle'), finalScore = $('finalScore'), finalBest = $('finalBest');
   var sDist = $('sDist'), sNear = $('sNear'), sCombo = $('sCombo'), sSpeed = $('sSpeed');
-  var endNote = $('endNote');
+  var endNote = $('endNote'), earned = $('earned');
+  var creditsHud = $('creditsHud'), creditsVal = $('creditsVal');
+  var garagePanel = $('garagePanel'), goalsPanel = $('goalsPanel');
+  var carGrid = $('carGrid'), goalList = $('goalList');
+  var garageCredits = $('garageCredits'), goalsCredits = $('goalsCredits');
 
   // ------------------------------------------------------------- tuning
   var LANES = 3;
@@ -383,23 +522,118 @@
   var STEER_RATE = 2.3;                // road-space units per second at full lock
   var SHOULDER = 1.15;                 // how far off the tarmac you can stray
 
+  // ------------------------------------------------------------- garage
+  // Cars trade off against each other rather than being strictly better, so
+  // picking one is a choice about how you want to drive. Every multiplier is
+  // relative to the stock car.
+  var CARS = [
+    { id: 'nightshift', name: 'Nightshift', cost: 0,
+      body: ['#ffd489', '#ff9d3d'], accent: '#ffb340',
+      steer: 1, grip: 1, top: 1, hitbox: 1, boost: 1, cash: 1,
+      blurb: 'The stock cab. No tricks, no weaknesses.' },
+
+    { id: 'drifter', name: 'Drifter', cost: 150,
+      body: ['#b6ffee', '#4de2c2'], accent: '#4de2c2',
+      steer: 1.3, grip: 1.35, top: 0.95, hitbox: 1, boost: 1, cash: 1,
+      blurb: 'Whips between lanes. Gives up a little top end.' },
+
+    { id: 'hauler', name: 'Hauler', cost: 350,
+      body: ['#9fb4d8', '#5c6480'], accent: '#8fa8cc',
+      steer: 0.95, grip: 0.95, top: 0.95, hitbox: 1.18, boost: 1, cash: 1.7,
+      blurb: 'Wide load. Hard to thread, but the pay is good.' },
+
+    { id: 'bolt', name: 'Bolt', cost: 600, req: 'ton_up',
+      body: ['#ff9d9d', '#ff5d5d'], accent: '#ff5d5d',
+      steer: 0.88, grip: 0.85, top: 1.16, hitbox: 1, boost: 1.1, cash: 1,
+      blurb: 'Quickest thing on the road. Steers like a brick.' },
+
+    { id: 'phantom', name: 'Phantom', cost: 900,
+      body: ['#d9b8ff', '#8a5cd6'], accent: '#b98cff',
+      steer: 1.05, grip: 1.05, top: 1, hitbox: 0.8, boost: 1.3, cash: 1,
+      blurb: 'Slips through gaps and builds overdrive fast.' },
+
+    { id: 'sovereign', name: 'Sovereign', cost: 2000, req: 'high_roller',
+      body: ['#fff3cf', '#e8c260'], accent: '#f0d488',
+      steer: 1.15, grip: 1.15, top: 1.1, hitbox: 0.9, boost: 1.15, cash: 1.25,
+      blurb: 'Everything, tuned up. Costs everything too.' }
+  ];
+
+  function carById(id) {
+    for (var i = 0; i < CARS.length; i++) if (CARS[i].id === id) return CARS[i];
+    return CARS[0];
+  }
+
+  // Goals pay out in credits, credits buy cars. One currency, one ladder.
+  // `run` goals read the stats of a single run; `life` goals read the totals.
+  var GOALS = [
+    { id: 'first_shift', name: 'First Shift',  desc: 'Finish a run',                 reward: 50,  scope: 'life', stat: 'runs',    target: 1 },
+    { id: 'century',     name: 'Century',      desc: 'Travel 1,000m in one run',     reward: 75,  scope: 'run',  stat: 'dist',    target: 1000 },
+    { id: 'close_shave', name: 'Close Shave',  desc: '10 near misses in one run',    reward: 100, scope: 'run',  stat: 'near',    target: 10 },
+    { id: 'collector',   name: 'Collector',    desc: 'Collect 100 credits in total', reward: 100, scope: 'life', stat: 'credits', target: 100 },
+    { id: 'chain_gang',  name: 'Chain Gang',   desc: 'Reach a \u00d75 multiplier',       reward: 125, scope: 'run',  stat: 'mult',    target: 5 },
+    { id: 'overdriven',  name: 'Overdriven',   desc: 'Trigger overdrive 3x in a run', reward: 150, scope: 'run', stat: 'od',      target: 3 },
+    { id: 'ton_up',      name: 'Ton Up',       desc: 'Hit 450 km/h',                 reward: 150, scope: 'run',  stat: 'speed',   target: 450 },
+    { id: 'long_haul',   name: 'Long Haul',    desc: 'Travel 5,000m in total',       reward: 200, scope: 'life', stat: 'dist',    target: 5000 },
+    { id: 'untouchable', name: 'Untouchable',  desc: 'Travel 2,000m in one run',     reward: 300, scope: 'run',  stat: 'dist',    target: 2000 },
+    { id: 'high_roller', name: 'High Roller',  desc: 'Score 25,000 in one run',      reward: 400, scope: 'run',  stat: 'score',   target: 25000 }
+  ];
+
   // ------------------------------------------------------------- storage
-  var KEY = 'nightshift_v2';
-  var save = { best: 0, bestDist: 0, muted: false };
-  try {
-    var raw = localStorage.getItem(KEY);
-    if (raw) {
-      var parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        if (typeof parsed.best === 'number') save.best = parsed.best;
-        if (typeof parsed.bestDist === 'number') save.bestDist = parsed.bestDist;
-        if (typeof parsed.muted === 'boolean') save.muted = parsed.muted;
-      }
+  var KEY = 'nightshift_v3';
+  var LEGACY_KEY = 'nightshift_v2';
+  var save = {
+    best: 0, bestDist: 0, muted: false,
+    credits: 0, car: 'nightshift', owned: ['nightshift'], goals: {},
+    totals: { runs: 0, dist: 0, credits: 0 }
+  };
+
+  function loadSave() {
+    var raw = null;
+    try { raw = localStorage.getItem(KEY); } catch (e) { return; }
+    if (!raw) {
+      // Carry the old score board across rather than wiping someone's best.
+      try {
+        var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
+        if (legacy && typeof legacy === 'object') {
+          if (typeof legacy.best === 'number') save.best = legacy.best;
+          if (typeof legacy.bestDist === 'number') save.bestDist = legacy.bestDist;
+          if (typeof legacy.muted === 'boolean') save.muted = legacy.muted;
+        }
+      } catch (e) {}
+      return;
     }
-  } catch (e) { /* private mode, or corrupt payload — defaults are fine */ }
+    var p;
+    try { p = JSON.parse(raw); } catch (e) { return; }
+    if (!p || typeof p !== 'object') return;
+    if (typeof p.best === 'number') save.best = p.best;
+    if (typeof p.bestDist === 'number') save.bestDist = p.bestDist;
+    if (typeof p.muted === 'boolean') save.muted = p.muted;
+    if (typeof p.credits === 'number') save.credits = Math.max(0, p.credits);
+    if (Array.isArray(p.owned)) {
+      // Only trust ids that still exist, and never lose the starter car.
+      save.owned = p.owned.filter(function (id) {
+        return CARS.some(function (c) { return c.id === id; });
+      });
+      if (save.owned.indexOf('nightshift') === -1) save.owned.push('nightshift');
+    }
+    if (typeof p.car === 'string' && save.owned.indexOf(p.car) !== -1) save.car = p.car;
+    if (p.goals && typeof p.goals === 'object') {
+      GOALS.forEach(function (g) { if (p.goals[g.id]) save.goals[g.id] = true; });
+    }
+    if (p.totals && typeof p.totals === 'object') {
+      ['runs', 'dist', 'credits'].forEach(function (k) {
+        if (typeof p.totals[k] === 'number') save.totals[k] = p.totals[k];
+      });
+    }
+  }
+  loadSave();
+
   function persist() {
     try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {}
   }
+
+  function owns(id) { return save.owned.indexOf(id) !== -1; }
+  function goalDone(id) { return !!save.goals[id]; }
 
   // ------------------------------------------------------------- geometry
   // A straight, flat road in one-point perspective. Depth `t` runs 0 (horizon)
@@ -562,6 +796,11 @@
   function sfxMilestone() { tone(660, 0.14, 0.12); setTimeout(function () { tone(880, 0.22, 0.12); }, 110); }
   function sfxRecord() { tone(523, 0.13, 0.13); setTimeout(function () { tone(659, 0.13, 0.13); }, 100); setTimeout(function () { tone(880, 0.3, 0.14); }, 200); }
   function sfxCrash() { noise(0.7, 220, 0.5, 0.35, 'lowpass'); tone(90, 0.5, 0.22, 'square', 40); }
+  function sfxCredit(v) { tone(v > 1 ? 1046 : 784, 0.11, 0.11, 'sine', v > 1 ? 1568 : 1175); }
+  function sfxGoal() {
+    tone(523, 0.12, 0.12); setTimeout(function () { tone(784, 0.12, 0.12); }, 90);
+    setTimeout(function () { tone(1046, 0.26, 0.13); }, 180);
+  }
   function sfxRumble() { noise(0.12, 160, 0.8, 0.09, 'lowpass'); }
 
   function setMuted(m) {
@@ -591,21 +830,26 @@
   var combo = 0, bestCombo = 0, comboTimer = 0, mult = 1;
   var nearMisses = 0;
   var boost = 0, overdrive = 0;
-  var obstacles = [], particles = [], popups = [];
+  var obstacles = [], pickups = [], particles = [], popups = [];
   var dashPhase = 0, waveT = 99, lastOpenLane = 1;
-  var shake = 0, flash = 0, flashSide = 0, offroad = 0;
+  var shake = 0, flash = 0, flashSide = 0, offroad = 0, creditFlash = 0;
   var nextMilestone = 500, beatBest = false, deathTimer = 0;
+  var creditsRun = 0, overdrives = 0;
+  var car = carById(save.car);        // stats of the car being driven
+  var earnedThisRun = [];             // goals completed during this run
 
   function reset() {
+    car = carById(save.car);
     px = 0; pvx = 0; steer = 0; wheelAngle = 0;
     speed = BASE_SPEED; targetSpeed = BASE_SPEED; topSpeed = 0;
     distance = 0; score = 0; elapsed = 0;
     combo = 0; bestCombo = 0; comboTimer = 0; mult = 1;
     nearMisses = 0; boost = 0; overdrive = 0;
-    obstacles = []; particles = []; popups = [];
+    obstacles = []; pickups = []; particles = []; popups = [];
     waveT = 99; lastOpenLane = 1;
     shake = 0; flash = 0; offroad = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
+    creditsRun = 0; overdrives = 0; earnedThisRun = [];
     applyWheel();
     updateCombo();
   }
@@ -681,8 +925,10 @@
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyRight = true;
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
-      if (state === 'ready' || state === 'over') start();
+      if (panelOpen()) closePanels();
+      else if (state === 'ready' || state === 'over') start();
     }
+    if (e.key === 'Escape' && panelOpen()) closePanels();
     if (e.key === 'm' || e.key === 'M') { resumeAudio(); setMuted(!save.muted); }
   });
   window.addEventListener('keyup', function (e) {
@@ -696,9 +942,141 @@
   startOverlay.addEventListener('click', start);
   endOverlay.addEventListener('click', start);
 
+  // ------------------------------------------------------------- menus
+  function carSvg(c, scale) {
+    var w = 26 * (scale || 1) * c.hitbox;
+    return '<svg viewBox="0 0 44 64" aria-hidden="true">' +
+      '<defs><linearGradient id="g_' + c.id + '" x1="0" y1="0" x2="0" y2="1">' +
+      '<stop offset="0" stop-color="' + c.body[0] + '"/>' +
+      '<stop offset="1" stop-color="' + c.body[1] + '"/></linearGradient></defs>' +
+      '<rect x="' + (22 - w / 2) + '" y="6" width="' + w + '" height="52" rx="8" fill="url(#g_' + c.id + ')"/>' +
+      '<rect x="' + (22 - w * 0.32) + '" y="13" width="' + (w * 0.64) + '" height="14" rx="5" fill="rgba(150,210,255,0.45)"/>' +
+      '<rect x="' + (22 - w * 0.42) + '" y="7" width="' + (w * 0.2) + '" height="4" rx="2" fill="#fff6e0"/>' +
+      '<rect x="' + (22 + w * 0.22) + '" y="7" width="' + (w * 0.2) + '" height="4" rx="2" fill="#fff6e0"/>' +
+      '<ellipse cx="22" cy="57" rx="' + (w * 0.3) + '" ry="3" fill="' + c.accent + '" opacity="0.5"/>' +
+      '</svg>';
+  }
+
+  // Stat bars are relative to the stock car; hitbox is inverted so that a
+  // longer bar always means "better at this".
+  function statBars(c) {
+    var rows = [
+      ['SPEED', c.top], ['STEER', c.steer], ['GRIP', c.grip],
+      ['SLIM', 2 - c.hitbox], ['CASH', c.cash]
+    ];
+    return '<div class="car-stats">' + rows.map(function (r) {
+      var pct = Math.max(6, Math.min(100, (r[1] - 0.6) / 0.8 * 100));
+      return '<div class="stat-line">' + r[0] +
+             '<span class="bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></div>';
+    }).join('') + '</div>';
+  }
+
+  function renderGarage() {
+    garageCredits.textContent = save.credits.toLocaleString();
+    carGrid.innerHTML = CARS.map(function (c) {
+      var have = owns(c.id), active = save.car === c.id;
+      var locked = !have;
+      var needGoal = c.req && !goalDone(c.req);
+      var action, cls;
+      if (active)        { action = 'DRIVING'; cls = 'active'; }
+      else if (have)     { action = 'SELECT';  cls = 'owned'; }
+      else if (needGoal) { action = 'GOAL: ' + goalName(c.req); cls = 'need'; }
+      else if (save.credits >= c.cost) { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'buy'; }
+      else               { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'need'; }
+      return '<div class="car-card' + (active ? ' selected' : '') + (locked ? ' locked' : '') +
+             '" data-car="' + c.id + '">' + carSvg(c) +
+             '<div class="car-name">' + c.name + '</div>' +
+             '<div class="car-blurb">' + c.blurb + '</div>' + statBars(c) +
+             '<div class="car-action ' + cls + '">' + action + '</div></div>';
+    }).join('');
+  }
+
+  function goalName(id) {
+    for (var i = 0; i < GOALS.length; i++) if (GOALS[i].id === id) return GOALS[i].name;
+    return id;
+  }
+
+  function renderGoals() {
+    goalsCredits.textContent = save.credits.toLocaleString();
+    goalList.innerHTML = GOALS.map(function (g) {
+      var done = goalDone(g.id);
+      // Only draw a bar where there is a real number behind it: lifetime
+      // totals, plus the two run goals whose personal best we actually store.
+      var have = null;
+      if (g.scope === 'life') have = lifeStat(g.stat);
+      else if (g.stat === 'score') have = save.best;
+      else if (g.stat === 'dist') have = save.bestDist;
+      var bar = '';
+      if (!done && have !== null) {
+        var pct = Math.max(0, Math.min(100, have / g.target * 100));
+        bar = '<div class="goal-bar"><i style="width:' + pct.toFixed(0) + '%"></i></div>';
+      }
+      return '<div class="goal-row' + (done ? ' done' : '') + '">' +
+        '<div class="goal-tick">\u2713</div><div class="goal-main">' +
+        '<div class="goal-name">' + g.name + '</div>' +
+        '<div class="goal-desc">' + g.desc + '</div>' + bar +
+        '</div><div class="goal-reward">\u25c6 ' + g.reward + '</div></div>';
+    }).join('');
+  }
+
+  function openPanel(p) {
+    if (p === garagePanel) renderGarage(); else renderGoals();
+    p.classList.remove('hidden');
+  }
+  function closePanels() {
+    garagePanel.classList.add('hidden');
+    goalsPanel.classList.add('hidden');
+  }
+  function panelOpen() {
+    return !garagePanel.classList.contains('hidden') || !goalsPanel.classList.contains('hidden');
+  }
+
+  function menu(btn, panel) {
+    var b = $(btn);
+    if (b) b.addEventListener('click', function (e) {
+      e.stopPropagation();          // the overlays restart on click
+      resumeAudio();
+      openPanel(panel);
+    });
+  }
+  menu('garageBtn', garagePanel); menu('goalsBtn', goalsPanel);
+  menu('garageBtn2', garagePanel); menu('goalsBtn2', goalsPanel);
+  $('garageClose').addEventListener('click', function (e) { e.stopPropagation(); closePanels(); });
+  $('goalsClose').addEventListener('click', function (e) { e.stopPropagation(); closePanels(); });
+  garagePanel.addEventListener('click', function (e) { e.stopPropagation(); });
+  goalsPanel.addEventListener('click', function (e) { e.stopPropagation(); });
+
+  // Buy on first tap, select on the next — no separate confirm step.
+  carGrid.addEventListener('click', function (e) {
+    var card = e.target.closest ? e.target.closest('.car-card') : null;
+    if (!card) return;
+    var c = carById(card.getAttribute('data-car'));
+    if (owns(c.id)) {
+      save.car = c.id;
+      persist();
+      if (state !== 'playing') car = c;
+      tone(660, 0.12, 0.1);
+    } else if (c.req && !goalDone(c.req)) {
+      tone(180, 0.16, 0.09, 'square');
+    } else if (save.credits >= c.cost) {
+      save.credits -= c.cost;
+      save.owned.push(c.id);
+      save.car = c.id;
+      persist();
+      if (state !== 'playing') car = c;
+      sfxGoal();
+      buzz(30);
+    } else {
+      tone(180, 0.16, 0.09, 'square');
+    }
+    renderGarage();
+    updateHud();
+  });
+
   // ------------------------------------------------------------- flow
   function start() {
-    if (state === 'dying') return;
+    if (state === 'dying' || panelOpen()) return;
+    closePanels();
     resumeAudio();
     reset();
     state = 'playing';
@@ -737,6 +1115,9 @@
     var prevBest = save.best;
     if (isRecord) save.best = s;
     if (d > save.bestDist) save.bestDist = d;
+    save.totals.runs += 1;
+    save.totals.dist += d;
+    checkGoals();               // catches the lifetime goals this run completed
     persist();
 
     endTitle.textContent = isRecord ? 'NEW RECORD' : 'WRECKED';
@@ -759,6 +1140,15 @@
         (gap < 150 ? 'Just ' + gap.toLocaleString() + ' points off your best.'
                    : gap.toLocaleString() + ' points off your best.');
     }
+    var lines = [];
+    if (creditsRun > 0) lines.push('Collected <b>\u25c6 ' + creditsRun + '</b>');
+    if (earnedThisRun.length) {
+      lines.push(earnedThisRun.map(function (g) {
+        return g.name + ' <b>+' + g.reward + '</b>';
+      }).join('<br>'));
+    }
+    earned.innerHTML = lines.join('<br>');
+
     endOverlay.classList.remove('hidden');
     updateHud();
   }
@@ -831,7 +1221,7 @@
         t: 0,
         cone: cone,
         closing: closing,
-        color: cone ? '#e8833a' : ['#4d5670', '#5c6480', '#6b5570', '#455f6e'][Math.floor(Math.random() * 4)],
+        color: cone ? '#e0512b' : ['#4d5670', '#5c6480', '#6b5570', '#455f6e'][Math.floor(Math.random() * 4)],
         scored: false,
         drift: 0
       };
@@ -840,6 +1230,91 @@
         o.drift = dir * (0.10 + Math.random() * 0.09);
       }
       obstacles.push(o);
+    }
+
+    if (!ambient && Math.random() < 0.75) spawnCredits(pick.free, pick.blocked);
+  }
+
+  // ------------------------------------------------------------- pickups
+  // Credits are laid down in a trail along one lane so that collecting them
+  // is a line to drive rather than a dot to clip. A trail placed beside
+  // traffic pays more, which is the whole risk/reward decision.
+  function spawnCredits(freeLanes, blockedLanes) {
+    if (!freeLanes.length) return;
+    var risky = blockedLanes.length > 0 && Math.random() < 0.35;
+    var lane, value;
+    if (risky) {
+      // Hug a blocked lane: sit in the free lane next to traffic.
+      var adjacent = freeLanes.filter(function (l) {
+        return blockedLanes.some(function (b) { return Math.abs(b - l) === 1; });
+      });
+      lane = (adjacent.length ? adjacent : freeLanes)[0];
+      value = 3;
+    } else {
+      lane = freeLanes[Math.floor(Math.random() * freeLanes.length)];
+      value = 1;
+    }
+    var count = 3 + Math.floor(Math.random() * 3);
+    for (var i = 0; i < count; i++) {
+      pickups.push({
+        lat: LANE_LAT[lane],
+        t: -0.06 * i,
+        value: value,
+        taken: false
+      });
+    }
+  }
+
+  function collect(p) {
+    var gained = Math.max(1, Math.round(p.value * car.cash));
+    creditsRun += gained;
+    save.credits += gained;
+    save.totals.credits += gained;
+    score += gained * 5;
+    popup('+' + gained, xAt(p.lat, PLAYER_T), playerY - playerHalfPx * 2.1, '#4de2c2', 14);
+    sfxCredit(p.value);
+    creditFlash = 0.4;
+    checkGoals();
+    updateHud();
+  }
+
+  // ------------------------------------------------------------- goals
+  function runStat(stat) {
+    switch (stat) {
+      case 'dist':  return distance;
+      case 'near':  return nearMisses;
+      case 'mult':  return mult;
+      case 'od':    return overdrives;
+      case 'speed': return topSpeed;
+      case 'score': return score;
+      default:      return 0;
+    }
+  }
+
+  function lifeStat(stat) {
+    if (stat === 'dist') return save.totals.dist + distance;
+    if (stat === 'credits') return save.totals.credits;
+    if (stat === 'runs') return save.totals.runs;
+    return 0;
+  }
+
+  function goalValue(g) {
+    return g.scope === 'run' ? runStat(g.stat) : lifeStat(g.stat);
+  }
+
+  // Checked live so the payout lands in the moment you earn it.
+  function checkGoals() {
+    for (var i = 0; i < GOALS.length; i++) {
+      var g = GOALS[i];
+      if (save.goals[g.id]) continue;
+      if (goalValue(g) < g.target) continue;
+      save.goals[g.id] = true;
+      save.credits += g.reward;
+      earnedThisRun.push(g);
+      showBanner(g.name.toUpperCase() + '  +' + g.reward, '#4de2c2');
+      sfxGoal();
+      buzz(35);
+      persist();
     }
   }
 
@@ -859,7 +1334,7 @@
     // Grazes during overdrive stretch it a little rather than refilling the
     // meter, so a strong run still has to come down and earn the next one.
     if (overdrive > 0) overdrive = Math.min(OVERDRIVE_TIME, overdrive + 0.22);
-    else boost = Math.min(1, boost + 0.15);
+    else boost = Math.min(1, boost + 0.15 * car.boost);
     flash = 0.5;
     flashSide = o.lat > px ? 1 : -1;
     popup('+' + pts, xAt(o.lat, PLAYER_T), yAt(PLAYER_T) - playerHalfPx * 1.6, '#ffb340', 15 + Math.min(mult, 6));
@@ -874,6 +1349,7 @@
 
   function startOverdrive() {
     overdrive = OVERDRIVE_TIME;
+    overdrives++;
     boost = 0;
     boostWrap.classList.add('od');
     showBanner('OVERDRIVE', '#4de2c2');
@@ -906,6 +1382,12 @@
     bestDistVal.textContent = Math.max(save.bestDist, Math.floor(distance)) + ' m';
     speedVal.textContent = Math.round(speed) + ' km/h';
     boostFill.style.width = (overdrive > 0 ? (overdrive / OVERDRIVE_TIME) * 100 : boost * 100) + '%';
+    if (creditsVal.textContent !== String(save.credits)) {
+      creditsVal.textContent = save.credits;
+      creditsHud.classList.remove('bump');
+      void creditsHud.offsetWidth;
+      creditsHud.classList.add('bump');
+    }
   }
 
   // ------------------------------------------------------------- update
@@ -913,7 +1395,7 @@
     elapsed += dt;
 
     // --- speed ---
-    targetSpeed = BASE_SPEED + Math.min(elapsed * 7, SPEED_RAMP);
+    targetSpeed = (BASE_SPEED + Math.min(elapsed * 7, SPEED_RAMP)) * car.top;
     if (overdrive > 0) targetSpeed *= 1.32;
     if (offroad > 0) targetSpeed *= 0.72;
     speed += (targetSpeed - speed) * Math.min(1, dt * 1.4);
@@ -935,7 +1417,7 @@
       wheelAngle = input * MAX_ANGLE;
       applyWheel();
     }
-    pvx += (input * STEER_RATE - pvx) * Math.min(1, dt * 9);
+    pvx += (input * STEER_RATE * car.steer - pvx) * Math.min(1, dt * 9 * car.grip);
     px += pvx * dt;
 
     // --- shoulder rumble: costly, but never instantly fatal ---
@@ -988,7 +1470,7 @@
     var gap = Math.max(0.24, 0.46 - elapsed * 0.003);
     if (waveT >= gap) { spawnWave(false); waveT = 0; }
 
-    var hitLat = (CAR_HALF + OBS_HALF) * (overdrive > 0 ? 0.7 : HIT_FORGIVE);
+    var hitLat = (CAR_HALF * car.hitbox + OBS_HALF) * (overdrive > 0 ? 0.7 : HIT_FORGIVE);
     for (var i = obstacles.length - 1; i >= 0; i--) {
       var o = obstacles[i];
       var prevT = o.t;
@@ -1010,7 +1492,21 @@
       }
     }
 
+    // Overdrive widens the pickup radius, so a hot streak sweeps the lane.
+    var grabLat = (overdrive > 0 ? 0.5 : 0.34);
+    for (var k = pickups.length - 1; k >= 0; k--) {
+      var pk = pickups[k];
+      var pPrev = pk.t;
+      pk.t += rate * dt;
+      if (pk.t > 0.95) { pickups.splice(k, 1); continue; }
+      if (!pk.taken && pPrev < PLAYER_T && pk.t >= PLAYER_T) {
+        pk.taken = true;
+        if (Math.abs(pk.lat - px) < grabLat) collect(pk);
+      }
+    }
+
     stepEffects(dt);
+    checkGoals();
     dashPhase = (dashPhase + rate * dt) % 0.075;
     engineLevel(1, Math.max(0, Math.min(1, speedNorm)) + (overdrive > 0 ? 0.2 : 0));
     updateHud();
@@ -1026,6 +1522,10 @@
       o.t += rate * o.closing * dt;
       if (o.t > 0.95) obstacles.splice(i, 1);
     }
+    for (var k = pickups.length - 1; k >= 0; k--) {
+      pickups[k].t += rate * dt;
+      if (pickups[k].t > 0.95) pickups.splice(k, 1);
+    }
     dashPhase = (dashPhase + rate * dt) % 0.075;
     stepEffects(dt);
   }
@@ -1033,6 +1533,7 @@
   function stepEffects(dt) {
     if (shake > 0.2) shake *= Math.pow(0.02, dt); else shake = 0;
     if (flash > 0) flash = Math.max(0, flash - dt * 2.2);
+    if (creditFlash > 0) creditFlash = Math.max(0, creditFlash - dt * 2.6);
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -1192,6 +1693,13 @@
       if (o.cone) drawCone(o); else drawTraffic(o);
     }
 
+    // ---- credits ----
+    for (var ci = 0; ci < pickups.length; ci++) {
+      var pk = pickups[ci];
+      if (pk.taken || pk.t < 0.005) continue;
+      drawCredit(pk);
+    }
+
     // ---- player ----
     if (state !== 'over') drawPlayer();
 
@@ -1227,6 +1735,12 @@
       fg.addColorStop(0, 'rgba(255,179,64,' + (flash * 0.3) + ')');
       fg.addColorStop(1, 'rgba(255,179,64,0)');
       ctx.fillStyle = fg;
+      ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- credit pickup flash ----
+    if (creditFlash > 0.01) {
+      ctx.fillStyle = 'rgba(77,226,194,' + (creditFlash * 0.09) + ')';
       ctx.fillRect(0, 0, W, H);
     }
 
@@ -1320,6 +1834,50 @@
     ctx.restore();
   }
 
+  // A hovering, spinning chip. The bob and the ground glow are what make it
+  // read as a pickup rather than another obstacle to dodge.
+  function drawCredit(p) {
+    var base = yAt(p.t);
+    if (base < horizonY - 4) return;
+    var s = halfAt(p.t);
+    var hiVal = p.value > 1;
+    var r = s * (hiVal ? 0.105 : 0.075);
+    var bob = Math.sin(elapsed * 5 + p.t * 22) * r * 0.5;
+    var y = base - r * 2.6 + bob;
+    var hi = hiVal;
+    var spin = Math.abs(Math.cos(elapsed * 3.4 + p.t * 12));
+
+    ctx.save();
+    // pool of light on the tarmac
+    ctx.fillStyle = hi ? 'rgba(255,179,64,0.16)' : 'rgba(77,226,194,0.14)';
+    ctx.beginPath();
+    ctx.ellipse(xAt(p.lat, p.t), base, r * 1.5, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.translate(xAt(p.lat, p.t), y);
+    ctx.fillStyle = hi ? 'rgba(255,179,64,0.22)' : 'rgba(77,226,194,0.2)';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 2.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.scale(Math.max(0.18, spin), 1);
+    ctx.fillStyle = hi ? '#ffb340' : '#4de2c2';
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = hi ? '#7a4a10' : '#0d3b34';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    if (hi) {
+      ctx.fillStyle = 'rgba(255,255,255,0.9)';
+      ctx.beginPath();
+      ctx.arc(0, -r * 0.3, r * 0.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
   function drawCone(o) {
     var base = yAt(o.t);
     var fade = passFade(o.t);
@@ -1335,7 +1893,7 @@
     ctx.beginPath();
     ctx.ellipse(0, 0, w * 0.55, h * 0.1, 0, 0, Math.PI * 2);
     ctx.fill();
-    ctx.fillStyle = '#e8833a';
+    ctx.fillStyle = '#e0512b';
     ctx.beginPath();
     ctx.moveTo(0, -h);
     ctx.lineTo(w * 0.5, 0);
@@ -1348,7 +1906,7 @@
   }
 
   function drawPlayer() {
-    var w = playerHalfPx * 2, h = w * 1.55;
+    var w = playerHalfPx * 2 * car.hitbox, h = w * 1.55;
     var x = xAt(px, PLAYER_T);
     ctx.save();
     ctx.translate(x, playerY);
@@ -1376,8 +1934,8 @@
     ctx.fill();
 
     var g = ctx.createLinearGradient(0, -h, 0, 0);
-    g.addColorStop(0, overdrive > 0 ? '#b6ffee' : '#ffd489');
-    g.addColorStop(1, overdrive > 0 ? '#4de2c2' : '#ff9d3d');
+    g.addColorStop(0, overdrive > 0 ? '#b6ffee' : car.body[0]);
+    g.addColorStop(1, overdrive > 0 ? '#4de2c2' : car.body[1]);
     ctx.fillStyle = g;
     roundRect(-w / 2, -h, w, h, w * 0.24);
     ctx.fill();
@@ -1394,7 +1952,7 @@
     // exhaust glow, brighter in overdrive
     var eg = overdrive > 0 ? 0.85 : 0.35;
     ctx.globalAlpha = eg;
-    ctx.fillStyle = overdrive > 0 ? '#4de2c2' : '#ff7a3d';
+    ctx.fillStyle = overdrive > 0 ? '#4de2c2' : car.accent;
     ctx.beginPath();
     ctx.ellipse(0, h * 0.02, w * (overdrive > 0 ? 0.5 : 0.3), h * (overdrive > 0 ? 0.16 : 0.07), 0, 0, Math.PI * 2);
     ctx.fill();
@@ -1451,8 +2009,10 @@
     spawnWave(true);
     for (var q = 0; q < obstacles.length; q++) obstacles[q].t += 0.24;
   }
+  closePanels();          // own the panel state in code, not just in markup
   bestVal.textContent = save.best.toLocaleString();
   bestDistVal.textContent = save.bestDist + ' m';
+  creditsVal.textContent = save.credits;
   requestAnimationFrame(tick);
 })();
 </script>

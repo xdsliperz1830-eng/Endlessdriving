@@ -71,8 +71,39 @@ friction is what stops people playing "one more".
   always leaves a reachable gap.
 - Speed and traffic density ramp with time; two-car waves and lane-changing
   traffic are introduced as the run goes on.
-- Score, best score, and best distance are saved to `localStorage` under the
-  `nightshift_v2` key.
+
+## Credits, goals and the garage
+
+- **Credits** are laid down in trails along a lane, so collecting them is a
+  line to drive rather than a dot to clip. A trail placed beside traffic is
+  worth three times as much — that is the whole risk decision. Overdrive
+  widens the pickup radius, so a hot streak sweeps the lane clean.
+- **Goals** are ten one-off objectives (distance in a run, near-miss chains,
+  overdrives, top speed, lifetime totals) that pay out in credits. They are
+  checked live, so the payout lands in the moment you earn it, and the run's
+  haul is summarised on the game-over card.
+- **Cars** are bought with credits in the garage. They trade off against each
+  other rather than being strictly better, so the choice is about how you want
+  to drive:
+
+  | Car | Trade-off |
+  | --- | --- |
+  | Nightshift | The stock cab — no strengths, no weaknesses |
+  | Drifter | Whips between lanes, gives up top end |
+  | Hauler | Wide, hard to thread, earns 70% more credits |
+  | Bolt | Fastest on the road, steers like a brick |
+  | Phantom | Slim hitbox, builds overdrive fast |
+  | Sovereign | Everything tuned up, and priced accordingly |
+
+  Every stat is a real multiplier on steering rate, steering response, top
+  speed, hitbox width, overdrive fill, or credit value — and the car you drive
+  is drawn at its actual width, so a wide car looks wide. The last two cars
+  also need a specific goal completed, not just the credits.
+
+- Progress is saved to `localStorage` under the `nightshift_v3` key (scores,
+  credits, owned cars, completed goals, lifetime totals). A `nightshift_v2`
+  score board from an earlier version is migrated across on first load rather
+  than being discarded.
 
 ## Tech
 
