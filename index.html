@@ -357,7 +357,7 @@
   }
   .car-card.selected { border-color: var(--mint); background: rgba(77,226,194,0.08); }
   .car-card.locked { opacity: 0.72; }
-  .car-card svg { width: 38px; height: 56px; display: block; margin: 0 auto 7px; }
+  .car-card img { width: 62px; height: auto; display: block; margin: 0 auto 6px; }
   .car-name { font-size: 14px; font-weight: 700; color: var(--text); }
   .car-blurb { font-size: 10px; color: var(--dim); line-height: 1.35; margin: 4px 0 8px; min-height: 40px; }
   .car-stats { display: flex; flex-direction: column; gap: 3px; margin-bottom: 9px; }
@@ -559,31 +559,37 @@
     { id: 'nightshift', name: 'Beater', cost: 0,
       body: ['#b9cddb', '#6f8ea6'], accent: '#2ee6d6',
       steer: 1, grip: 1, top: 1, hitbox: 1, boost: 1, cash: 1,
+      shape: 'sedan',
       blurb: 'The car you started with. No tricks, no weaknesses.' },
 
     { id: 'drifter', name: 'Drifter', cost: 750,
       body: ['#8bffef', '#2ee6d6'], accent: '#2ee6d6',
       steer: 1.3, grip: 1.35, top: 0.95, hitbox: 1, boost: 1, cash: 1,
+      shape: 'sport',
       blurb: 'Whips between lanes. Gives up a little top end.' },
 
     { id: 'hauler', name: 'Hauler', cost: 2000,
-      body: ['#9fb4d8', '#5c6480'], accent: '#8fa8cc',
+      body: ['#f0cf92', '#a87f3e'], accent: '#e8b44a',
       steer: 0.95, grip: 0.95, top: 0.95, hitbox: 1.18, boost: 1, cash: 1.7,
+      shape: 'van',
       blurb: 'Wide load. Hard to thread, but the pay is good.' },
 
     { id: 'bolt', name: 'Bolt', cost: 5000, req: 'ton_up',
       body: ['#ff8f8f', '#e8203a'], accent: '#ff2d46',
       steer: 0.88, grip: 0.85, top: 1.16, hitbox: 1, boost: 1.1, cash: 1,
+      shape: 'sport',
       blurb: 'Quickest thing on the road. Steers like a brick.' },
 
     { id: 'phantom', name: 'Phantom', cost: 6000,
       body: ['#d9b8ff', '#8a5cd6'], accent: '#b98cff',
       steer: 1.05, grip: 1.05, top: 1, hitbox: 0.8, boost: 1.3, cash: 1,
+      shape: 'sport',
       blurb: 'Slips through gaps and builds overdrive fast.' },
 
     { id: 'sovereign', name: 'Sovereign', cost: 13000, req: 'high_roller',
       body: ['#fff0c2', '#ffc02e'], accent: '#ffd76a',
       steer: 1.15, grip: 1.15, top: 1.1, hitbox: 0.9, boost: 1.15, cash: 1.25,
+      shape: 'sedan',
       blurb: 'Everything, tuned up. Costs everything too.' }
   ];
 
@@ -1009,18 +1015,29 @@
   endOverlay.addEventListener('click', start);
 
   // ------------------------------------------------------------- menus
-  function carSvg(c, scale) {
-    var w = 26 * (scale || 1) * c.hitbox;
-    return '<svg viewBox="0 0 44 64" aria-hidden="true">' +
-      '<defs><linearGradient id="g_' + c.id + '" x1="0" y1="0" x2="0" y2="1">' +
-      '<stop offset="0" stop-color="' + c.body[0] + '"/>' +
-      '<stop offset="1" stop-color="' + c.body[1] + '"/></linearGradient></defs>' +
-      '<rect x="' + (22 - w / 2) + '" y="6" width="' + w + '" height="52" rx="8" fill="url(#g_' + c.id + ')"/>' +
-      '<rect x="' + (22 - w * 0.32) + '" y="13" width="' + (w * 0.64) + '" height="14" rx="5" fill="rgba(150,210,255,0.45)"/>' +
-      '<rect x="' + (22 - w * 0.42) + '" y="7" width="' + (w * 0.2) + '" height="4" rx="2" fill="#fff6e0"/>' +
-      '<rect x="' + (22 + w * 0.22) + '" y="7" width="' + (w * 0.2) + '" height="4" rx="2" fill="#fff6e0"/>' +
-      '<ellipse cx="22" cy="57" rx="' + (w * 0.3) + '" ry="3" fill="' + c.accent + '" opacity="0.5"/>' +
-      '</svg>';
+  var thumbCache = {};
+  function carThumb(c) {
+    if (thumbCache[c.id]) return thumbCache[c.id];
+    var cv = document.createElement('canvas');
+    var DP = 2, CW = 84, CH = 116;
+    cv.width = CW * DP; cv.height = CH * DP;
+    var octx = cv.getContext('2d');
+    octx.setTransform(DP, 0, 0, DP, 0, 0);
+    // Borrow the live renderer by pointing it at the thumbnail canvas, so a
+    // preview can never drift from the car you actually drive.
+    var real = ctx;
+    ctx = octx;
+    try {
+      var s = SHAPES[c.shape] || SHAPES.sport;
+      var w = 50 * c.hitbox;
+      octx.translate(CW / 2, CH - 8);
+      drawCarBody(w, w * s.hr, s, c.body[0], c.body[1], '#ff2d34');
+    } finally {
+      ctx = real;
+    }
+    thumbCache[c.id] = '<img src="' + cv.toDataURL() + '" width="' + CW + '" height="' + CH +
+                       '" alt="" style="display:block;margin:0 auto 6px">';
+    return thumbCache[c.id];
   }
 
   // Stat bars are relative to the stock car; hitbox is inverted so that a
@@ -1050,7 +1067,7 @@
       else if (save.credits >= c.cost) { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'buy'; }
       else               { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'need'; }
       return '<div class="car-card' + (active ? ' selected' : '') + (locked ? ' locked' : '') +
-             '" data-car="' + c.id + '">' + carSvg(c) +
+             '" data-car="' + c.id + '">' + carThumb(c) +
              '<div class="car-name">' + c.name + '</div>' +
              '<div class="car-blurb">' + c.blurb + '</div>' + statBars(c) +
              '<div class="car-action ' + cls + '">' + action + '</div></div>';
@@ -1286,6 +1303,7 @@
         lat: LANE_LAT[lane],
         t: 0,
         cone: cone,
+        shape: ['sedan', 'sedan', 'van', 'sport'][Math.floor(Math.random() * 4)],
         closing: closing,
         color: cone ? '#e0512b' : ['#4d5670', '#5c6480', '#6b5570', '#455f6e'][Math.floor(Math.random() * 4)],
         scored: false,
@@ -1337,7 +1355,7 @@
     save.credits += gained;
     save.totals.credits += gained;
     score += gained * 5;
-    popup('+' + gained, xAt(p.lat, PLAYER_T), playerY - playerHalfPx * 2.1, '#4de2c2', 14);
+    popup('+' + gained, xAt(p.lat, PLAYER_T), playerY - playerHalfPx * 3.8, '#2ee6d6', 14);
     sfxCredit(p.value);
     creditFlash = 0.4;
     checkGoals();
@@ -1403,7 +1421,7 @@
     else boost = Math.min(1, boost + 0.15 * car.boost);
     flash = 0.5;
     flashSide = o.lat > px ? 1 : -1;
-    popup('+' + pts, xAt(o.lat, PLAYER_T), yAt(PLAYER_T) - playerHalfPx * 1.6, '#ffb340', 15 + Math.min(mult, 6));
+    popup('+' + pts, xAt(o.lat, PLAYER_T), playerY - playerHalfPx * 3.4, '#ffc02e', 15 + Math.min(mult, 6));
     sfxNearMiss();
     sfxCombo(combo);
     comboChip.classList.remove('pop');
@@ -1885,47 +1903,159 @@
     return t <= 0.77 ? 1 : Math.max(0, 1 - (t - 0.77) / 0.15);
   }
 
+  // Three silhouettes so traffic does not read as one repeated box. Only the
+  // height and roofline vary — every vehicle keeps the same drawn width as its
+  // hitbox, so nothing ever looks narrower or wider than it actually is.
+  // Three silhouettes so traffic does not read as one repeated box. Only the
+  // height and roofline vary — every vehicle keeps the same drawn width as its
+  // hitbox, so nothing ever looks narrower or wider than it actually is.
+  //   shoulder: where the body stops and the cabin takes over
+  //   roof:     top of the cabin;  cabB/cabT: cabin width at its base and roof
+  var SHAPES = {
+    sedan: { hr: 1.60, shoulder: 0.56, roof: 0.90, cabB: 0.80, cabT: 0.66,
+             hip: 1.00, shW: 0.94, lightY: 0.30, lightH: 0.085, lightW: 0.26, r: 0.17 },
+    van:   { hr: 1.86, shoulder: 0.54, roof: 0.92, cabB: 0.90, cabT: 0.84,
+             hip: 0.99, shW: 0.97, lightY: 0.24, lightH: 0.13,  lightW: 0.16, r: 0.11 },
+    sport: { hr: 1.46, shoulder: 0.50, roof: 0.82, cabB: 0.84, cabT: 0.58,
+             hip: 1.00, shW: 0.90, lightY: 0.31, lightH: 0.06,  lightW: 0.34, r: 0.22 }
+  };
+
+  // A rounded box whose top edge is narrower than its base — the taper is what
+  // sells the three-quarter-from-behind view.
+  function taperedBox(wBot, wTop, yBot, yTop, r) {
+    var hb = wBot / 2, ht = wTop / 2;
+    r = Math.min(r, hb * 0.8, Math.abs(yBot - yTop) * 0.45);
+    ctx.beginPath();
+    ctx.moveTo(-hb + r, yBot);
+    ctx.lineTo(hb - r, yBot);
+    ctx.quadraticCurveTo(hb, yBot, hb, yBot - r);
+    ctx.lineTo(ht, yTop + r);
+    ctx.quadraticCurveTo(ht, yTop, ht - r, yTop);
+    ctx.lineTo(-ht + r, yTop);
+    ctx.quadraticCurveTo(-ht, yTop, -ht, yTop + r);
+    ctx.lineTo(-hb, yBot - r);
+    ctx.quadraticCurveTo(-hb, yBot, -hb + r, yBot);
+    ctx.closePath();
+  }
+
+  // Shared bodywork for traffic and the player. Origin is the contact patch and
+  // the vehicle is built upward from y = 0. The cabin is laid down first and
+  // extends below the shoulder line, so the body drawn over it hides the join
+  // and the roof appears to grow out of the bodywork rather than sit on it.
+  function drawCarBody(w, h, s, body0, body1, tail) {
+    var hipW = w * s.hip, shW = w * s.shW;
+    var shoulderY = -h * s.shoulder, roofY = -h * s.roof;
+
+    // ground shadow
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, w * 0.55, h * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // rear tyres, just proud of the bodywork
+    ctx.fillStyle = '#090c12';
+    var ww = w * 0.09, wh = h * 0.17, wy = -h * 0.07;
+    roundRect(-hipW / 2 - ww * 0.55, wy - wh, ww, wh, ww * 0.4); ctx.fill();
+    roundRect(hipW / 2 - ww * 0.45, wy - wh, ww, wh, ww * 0.4); ctx.fill();
+
+    // cabin, run down past the shoulder so the body can cover the seam
+    var cg = ctx.createLinearGradient(0, roofY, 0, shoulderY);
+    cg.addColorStop(0, shade(body1, -6));
+    cg.addColorStop(1, shade(body1, -20));
+    ctx.fillStyle = cg;
+    taperedBox(w * s.cabB, w * s.cabT, shoulderY + h * 0.10, roofY, w * 0.10);
+    ctx.fill();
+
+    // rear glass
+    var glassTop = roofY + (shoulderY - roofY) * 0.14;
+    var glassBot = shoulderY - h * 0.015;
+    var gg = ctx.createLinearGradient(0, glassTop, 0, glassBot);
+    gg.addColorStop(0, 'rgba(30,54,86,0.97)');
+    gg.addColorStop(1, 'rgba(10,20,34,0.97)');
+    ctx.fillStyle = gg;
+    taperedBox(w * s.cabB * 0.8, w * s.cabT * 0.82, glassBot, glassTop, w * 0.07);
+    ctx.fill();
+    // one raking highlight across the glass
+    ctx.fillStyle = 'rgba(150,210,255,0.14)';
+    ctx.fillRect(-w * s.cabT * 0.36, glassTop + (glassBot - glassTop) * 0.42,
+                 w * s.cabT * 0.72, Math.max(0.6, h * 0.016));
+    // roof catch-light
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.fillRect(-w * s.cabT * 0.4, roofY, w * s.cabT * 0.8, Math.max(0.6, h * 0.012));
+
+    // main body, drawn over the cabin's lower half
+    var g = ctx.createLinearGradient(0, shoulderY, 0, 0);
+    g.addColorStop(0, body0);
+    g.addColorStop(0.5, body1);
+    g.addColorStop(1, shade(body1, -30));
+    ctx.fillStyle = g;
+    taperedBox(hipW, shW, 0, shoulderY, w * s.r);
+    ctx.fill();
+
+    // shoulder crease and a thin neon rim off the road's edge lighting
+    ctx.fillStyle = 'rgba(255,255,255,0.14)';
+    ctx.fillRect(-shW * 0.46, shoulderY, shW * 0.92, Math.max(0.5, h * 0.01));
+    ctx.strokeStyle = 'rgba(46,230,214,0.28)';
+    ctx.lineWidth = Math.max(0.5, w * 0.015);
+    taperedBox(hipW, shW, 0, shoulderY, w * s.r);
+    ctx.stroke();
+
+    // rear bumper
+    ctx.fillStyle = 'rgba(0,0,0,0.26)';
+    roundRect(-hipW / 2, -h * 0.11, hipW, h * 0.11, w * 0.06);
+    ctx.fill();
+
+    // tail light clusters — the thing you actually read at night
+    var lw = w * s.lightW, lh = Math.max(1.2, h * s.lightH), ly = -h * s.lightY;
+    var inset = w * 0.055;
+    var xs = [-hipW / 2 + inset, hipW / 2 - inset - lw];
+    xs.forEach(function (lx) {
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      roundRect(lx - lw * 0.05, ly - lh * 0.05, lw * 1.1, lh * 1.1, lh * 0.4);
+      ctx.fill();
+      ctx.fillStyle = tail;
+      roundRect(lx, ly, lw, lh, lh * 0.34);
+      ctx.fill();
+      ctx.fillStyle = 'rgba(255,225,225,0.7)';
+      roundRect(lx + lw * 0.16, ly + lh * 0.28, lw * 0.68, lh * 0.28, lh * 0.14);
+      ctx.fill();
+    });
+    // a tight bloom, not a halo over the whole car
+    var prev = ctx.globalAlpha;
+    ctx.globalAlpha = prev * 0.22;
+    ctx.fillStyle = tail;
+    xs.forEach(function (lx) {
+      ctx.beginPath();
+      ctx.ellipse(lx + lw / 2, ly + lh / 2, lw * 0.62, Math.min(lh * 1.15, lw * 0.5), 0, 0, Math.PI * 2);
+      ctx.fill();
+    });
+    ctx.globalAlpha = prev;
+
+    // number plate
+    ctx.fillStyle = 'rgba(226,234,246,0.7)';
+    roundRect(-w * 0.12, -h * 0.185, w * 0.24, Math.max(1, h * 0.045), w * 0.02);
+    ctx.fill();
+
+    // boot shut-line
+    ctx.fillStyle = 'rgba(0,0,0,0.18)';
+    ctx.fillRect(-Math.max(0.3, w * 0.005), shoulderY, Math.max(0.6, w * 0.01),
+                 Math.abs(shoulderY) - h * (s.lightY + 0.06));
+  }
+
   function drawTraffic(o) {
     var base = yAt(o.t);
     var fade = passFade(o.t);
     if (fade <= 0.01) return;
+    var s = SHAPES[o.shape] || SHAPES.sedan;
     var w = OBS_HALF * 2 * halfAt(o.t);
-    var h = w * 1.55;
+    var h = w * s.hr;
     var x = xAt(o.lat, o.t);
     if (base < horizonY - 4 || base - h > H + 60) return;
 
     ctx.save();
     ctx.globalAlpha = fade;
     ctx.translate(x, base);
-
-    ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, w * 0.52, h * 0.09, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    var g = ctx.createLinearGradient(0, -h, 0, 0);
-    g.addColorStop(0, shade(o.color, 26));
-    g.addColorStop(1, shade(o.color, -22));
-    ctx.fillStyle = g;
-    roundRect(-w / 2, -h, w, h, w * 0.2);
-    ctx.fill();
-
-    // rear window
-    ctx.fillStyle = 'rgba(120,175,235,0.3)';
-    roundRect(-w * 0.34, -h * 0.82, w * 0.68, h * 0.26, w * 0.1);
-    ctx.fill();
-
-    // tail lights — the main thing you read at night
-    var lw = w * 0.2, lh = Math.max(1.4, h * 0.075);
-    ctx.fillStyle = '#ff2d34';
-    ctx.fillRect(-w * 0.42, -h * 0.2, lw, lh);
-    ctx.fillRect(w * 0.42 - lw, -h * 0.2, lw, lh);
-    ctx.globalAlpha = fade * 0.45;
-    ctx.fillStyle = '#ff2d46';
-    ctx.beginPath();
-    ctx.arc(-w * 0.42 + lw / 2, -h * 0.2 + lh / 2, lw * 1.5, 0, Math.PI * 2);
-    ctx.arc(w * 0.42 - lw / 2, -h * 0.2 + lh / 2, lw * 1.5, 0, Math.PI * 2);
-    ctx.fill();
+    drawCarBody(w, h, s, shade(o.color, 30), o.color, '#ff2d34');
     ctx.restore();
   }
 
@@ -2028,7 +2158,9 @@
   }
 
   function drawPlayer() {
-    var w = playerHalfPx * 2 * car.hitbox, h = w * 1.55;
+    var s = SHAPES[car.shape] || SHAPES.sport;
+    var w = playerHalfPx * 2 * car.hitbox;
+    var h = w * s.hr;
     var x = xAt(px, PLAYER_T);
     ctx.save();
     ctx.translate(x, playerY);
@@ -2050,38 +2182,23 @@
     ctx.fill();
     ctx.restore();
 
-    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    var b0 = overdrive > 0 ? '#b6ffee' : car.body[0];
+    var b1 = overdrive > 0 ? '#2ee6d6' : car.body[1];
+    drawCarBody(w, h, s, b0, b1, '#ff2d34');
+
+    // headlight spill past the nose, so the car reads as lit from the front
+    ctx.fillStyle = 'rgba(255,246,224,0.95)';
+    roundRect(-w * 0.42, -h * s.roof - Math.max(1, h * 0.02), w * 0.2, Math.max(1.4, h * 0.035), w * 0.03);
+    ctx.fill();
+    roundRect(w * 0.22, -h * s.roof - Math.max(1, h * 0.02), w * 0.2, Math.max(1.4, h * 0.035), w * 0.03);
+    ctx.fill();
+
+    // exhaust, brighter under overdrive
+    ctx.globalAlpha = overdrive > 0 ? 0.9 : 0.4;
+    ctx.fillStyle = overdrive > 0 ? '#2ee6d6' : car.accent;
     ctx.beginPath();
-    ctx.ellipse(0, 0, w * 0.55, h * 0.1, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    var g = ctx.createLinearGradient(0, -h, 0, 0);
-    g.addColorStop(0, overdrive > 0 ? '#b6ffee' : car.body[0]);
-    g.addColorStop(1, overdrive > 0 ? '#4de2c2' : car.body[1]);
-    ctx.fillStyle = g;
-    roundRect(-w / 2, -h, w, h, w * 0.24);
-    ctx.fill();
-
-    ctx.fillStyle = 'rgba(30,52,78,0.85)';
-    roundRect(-w * 0.32, -h * 0.8, w * 0.64, h * 0.24, w * 0.1);
-    ctx.fill();
-
-    // headlights
-    ctx.fillStyle = '#ff2d34';
-    roundRect(-w * 0.44, -h * 0.16, w * 0.3, Math.max(2, h * 0.1), w * 0.06);
-    ctx.fill();
-    roundRect(w * 0.14, -h * 0.16, w * 0.3, Math.max(2, h * 0.1), w * 0.06);
-    ctx.fill();
-    ctx.fillStyle = '#fff6e0';
-    ctx.fillRect(-w * 0.42, -h * 0.99, w * 0.18, Math.max(1.5, h * 0.07));
-    ctx.fillRect(w * 0.24, -h * 0.99, w * 0.18, Math.max(1.5, h * 0.07));
-
-    // exhaust glow, brighter in overdrive
-    var eg = overdrive > 0 ? 0.85 : 0.35;
-    ctx.globalAlpha = eg;
-    ctx.fillStyle = overdrive > 0 ? '#4de2c2' : car.accent;
-    ctx.beginPath();
-    ctx.ellipse(0, h * 0.02, w * (overdrive > 0 ? 0.5 : 0.3), h * (overdrive > 0 ? 0.16 : 0.07), 0, 0, Math.PI * 2);
+    ctx.ellipse(0, h * 0.02, w * (overdrive > 0 ? 0.46 : 0.26),
+                h * (overdrive > 0 ? 0.14 : 0.06), 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.globalAlpha = 1;
     ctx.restore();
