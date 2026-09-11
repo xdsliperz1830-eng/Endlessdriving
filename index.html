@@ -137,6 +137,24 @@
   }
   #pauseBtn.on { display: flex; }
 
+  #musicBtn {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 144px);
+    right: 18px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ui-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #5b6274;
+    font-size: 15px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 8;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0;
+  }
+  #musicBtn.on { border-color: rgba(46,230,214,0.4); }
+
   #muteBtn {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 102px);
@@ -240,6 +258,9 @@
     background: radial-gradient(ellipse at center, rgba(8,16,34,0.74) 0%, rgba(4,7,14,0.94) 100%);
     z-index: 20;
     padding: 24px;
+    /* The end card carries a lot now (stats, earnings, continue, share), so
+       let it scroll rather than clip on a short screen. */
+    overflow-y: auto;
   }
   .overlay h1 { font-size: clamp(28px, 8vw, 44px); margin: 0 0 6px; letter-spacing: -0.01em; }
 
@@ -387,6 +408,11 @@
   .car-card.locked { opacity: 0.72; }
   .car-card img { width: 62px; height: auto; display: block; margin: 0 auto 6px; }
   .car-name { font-size: 14px; font-weight: 700; color: var(--text); }
+  .car-pb {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.05em;
+    color: var(--mint); margin-bottom: 7px;
+  }
+  .car-pb.dim { color: #5b6676; font-weight: 400; }
   .car-blurb { font-size: 10px; color: var(--dim); line-height: 1.35; margin: 4px 0 8px; min-height: 40px; }
   .car-stats { display: flex; flex-direction: column; gap: 3px; margin-bottom: 9px; }
   .stat-line { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--dim); letter-spacing: 0.04em; }
@@ -444,7 +470,7 @@
 
   #dailyHud {
     position: absolute;
-    top: calc(env(safe-area-inset-top, 0px) + 118px);
+    top: calc(env(safe-area-inset-top, 0px) + 186px);
     right: 18px;
     max-width: 46%;
     text-align: right;
@@ -492,6 +518,7 @@
   <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
   <div id="dailyHud"></div>
   <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
+  <button id="musicBtn" aria-label="Toggle music">&#9835;</button>
   <button id="muteBtn" aria-label="Toggle sound">&#9834;</button>
 
   <div id="banner"></div>
@@ -564,6 +591,7 @@
     <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE &#9670; 400</button>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
     <div class="menu-row">
+      <button class="ghost-btn" id="shareBtn">SHARE</button>
       <button class="ghost-btn" id="garageBtn2">GARAGE</button>
       <button class="ghost-btn" id="goalsBtn2">GOALS</button>
     </div>
@@ -612,7 +640,7 @@
   var garagePanel = $('garagePanel'), goalsPanel = $('goalsPanel');
   var dailyCard = $('dailyCard'), dailyText = $('dailyText'), dailyReward = $('dailyReward');
   var dailyHud = $('dailyHud');
-  var pauseOverlay = $('pauseOverlay'), pauseBtn = $('pauseBtn');
+  var pauseOverlay = $('pauseOverlay'), pauseBtn = $('pauseBtn'), musicBtn = $('musicBtn');
   var carGrid = $('carGrid'), goalList = $('goalList');
   var garageCredits = $('garageCredits'), goalsCredits = $('goalsCredits');
 
@@ -805,7 +833,8 @@
     best: 0, bestDist: 0, muted: false,
     credits: 0, car: 'nightshift', owned: ['nightshift'], goals: {},
     totals: { runs: 0, dist: 0, credits: 0 },
-    daily: null
+    daily: null, music: false,
+    carBest: {}          // best score per car, so the whole garage stays live
   };
 
   // Every field is type-checked individually, so this reads both the current
@@ -815,6 +844,7 @@
     if (typeof p.best === 'number') save.best = p.best;
     if (typeof p.bestDist === 'number') save.bestDist = p.bestDist;
     if (typeof p.muted === 'boolean') save.muted = p.muted;
+    if (typeof p.music === 'boolean') save.music = p.music;
     if (typeof p.credits === 'number') save.credits = Math.max(0, p.credits);
     if (Array.isArray(p.owned)) {
       // Only trust ids that still exist, and never lose the starter car.
@@ -839,6 +869,11 @@
     }
     if (p.daily && typeof p.daily.date === 'string') {
       save.daily = { date: p.daily.date, done: !!p.daily.done };
+    }
+    if (p.carBest && typeof p.carBest === 'object') {
+      CARS.forEach(function (c) {
+        if (typeof p.carBest[c.id] === 'number') save.carBest[c.id] = p.carBest[c.id];
+      });
     }
     return true;
   }
@@ -1073,6 +1108,84 @@
   }
   function sfxRumble() { noise(0.12, 160, 0.8, 0.09, 'lowpass'); }
 
+  // ------------------------------------------------------------- music
+  // A synthesised two-bar bass-and-arp loop. It is scheduled a beat ahead on
+  // the audio clock rather than from setInterval, so it does not drift, and it
+  // is off by default because background music is the one thing that can make
+  // a browser game worse without being asked.
+  var music = { on: false, bus: null, next: 0, step: 0, timer: null };
+  var BASS = [0, 0, 3, 0, 5, 3, 0, 7];          // semitones over the root
+  var ARP  = [12, 15, 19, 15, 12, 19, 22, 19];
+  var ROOT = 55;                                 // A1
+  var STEP_T = 0.16;
+
+  function noteHz(semi) { return ROOT * Math.pow(2, semi / 12); }
+
+  function musicVoice(freq, dur, type, vol, at, filt) {
+    var o = actx.createOscillator(); o.type = type;
+    var g = actx.createGain();
+    var f = actx.createBiquadFilter();
+    f.type = 'lowpass'; f.frequency.value = filt;
+    o.frequency.setValueAtTime(freq, at);
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.exponentialRampToValueAtTime(vol, at + 0.015);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    o.connect(f); f.connect(g); g.connect(music.bus);
+    o.start(at); o.stop(at + dur + 0.02);
+  }
+
+  function musicTick() {
+    if (!music.on || !actx || !music.bus) return;
+    var now = actx.currentTime;
+    // Schedule everything that falls inside the next quarter second.
+    while (music.next < now + 0.25) {
+      var at = Math.max(music.next, now + 0.01);
+      var i = music.step % 8;
+      var lift = state === 'playing' ? Math.min(1, Math.max(0, (speed - BASE_SPEED) / 300)) : 0;
+      musicVoice(noteHz(BASS[i]), STEP_T * 1.6, 'sawtooth', 0.075, at, 400 + lift * 900);
+      if (overdrive > 0 || (lift > 0.35 && i % 2 === 0)) {
+        musicVoice(noteHz(ARP[i]) * 2, STEP_T * 0.7, 'square', 0.022 + lift * 0.016, at,
+                   1600 + lift * 2400);
+      }
+      if (i === 0 || i === 4) noiseHit(at);
+      music.next += STEP_T;
+      music.step++;
+    }
+  }
+
+  function noiseHit(at) {
+    if (!noiseBuf) return;
+    var s = actx.createBufferSource(); s.buffer = noiseBuf;
+    var f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 5000;
+    var g = actx.createGain();
+    g.gain.setValueAtTime(0.045, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06);
+    s.connect(f); f.connect(g); g.connect(music.bus);
+    s.start(at); s.stop(at + 0.09);
+  }
+
+  function setMusic(on) {
+    music.on = on;
+    save.music = on;
+    persist();
+    musicBtn.classList.toggle('on', on);
+    musicBtn.style.color = on ? '#2ee6d6' : '#5b6274';
+    if (!actx) return;
+    if (on) {
+      if (!music.bus) {
+        music.bus = actx.createGain();
+        music.bus.gain.value = 0.55;
+        music.bus.connect(master);
+      }
+      music.next = actx.currentTime + 0.08;
+      music.step = 0;
+      if (!music.timer) music.timer = setInterval(musicTick, 60);
+    } else if (music.timer) {
+      clearInterval(music.timer);
+      music.timer = null;
+    }
+  }
+
   function setMuted(m) {
     save.muted = m; persist();
     if (master && actx) master.gain.setTargetAtTime(m ? 0 : 1, actx.currentTime, 0.05);
@@ -1080,6 +1193,11 @@
     muteBtn.style.color = m ? '#5b6274' : '#9aa3b5';
   }
   setMuted(save.muted);
+  musicBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    resumeAudio();
+    setMusic(!music.on);
+  });
   muteBtn.addEventListener('click', function (e) {
     e.stopPropagation();
     resumeAudio();
@@ -1104,10 +1222,20 @@
   var dashPhase = 0, waveT = 99, lastOpenLane = 1;
   var shake = 0, flash = 0, flashSide = 0, scraping = 0, creditFlash = 0;
   var nextMilestone = 500, beatBest = false, deathTimer = 0, lastRunDist = 0;
+  // A gate on the road at the distance your best run reached. Passing it is
+  // the moment a run stops being ordinary, so it gets a marker you can see
+  // coming rather than a number on the end card.
+  var ghostDist = 0, ghostT = -1, ghostPassed = false;
   var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0;
   // Traffic breathes rather than arriving at a constant rate: a surge packs
   // the waves closer, a breather opens the road up (and pays better).
   var mood = 'normal', moodTimer = 6, surges = 0;
+  // Weather turns over every few thousand metres so a long run visibly travels
+  // somewhere. It is cosmetic only — nothing about it changes the hitboxes or
+  // the spawner, so a wet road never costs you a run you would otherwise win.
+  var WEATHER = ['clear', 'rain', 'fog', 'clear', 'rain'];
+  var weather = 'clear', weatherIdx = 0, nextWeather = 1800, weatherMix = 0;
+  var rainDrops = [];
   var car = carById(save.car);        // stats of the car being driven
   var earnedThisRun = [];             // goals completed during this run
 
@@ -1122,9 +1250,11 @@
     waveT = 99; lastOpenLane = 1;
     shake = 0; flash = 0; scraping = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
+    ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
     creditsRun = 0; overdrives = 0; earnedThisRun = [];
     continues = 0; invuln = 0;
     mood = 'normal'; moodTimer = 6; surges = 0;
+    weather = 'clear'; weatherIdx = 0; nextWeather = 1800; weatherMix = 0; rainDrops = [];
     applyWheel();
     updateCombo();
   }
@@ -1279,7 +1409,9 @@
       return '<div class="car-card' + (active ? ' selected' : '') + (locked ? ' locked' : '') +
              '" data-car="' + c.id + '">' + carThumb(c) +
              '<div class="car-name">' + c.name + '</div>' +
-             '<div class="car-blurb">' + c.blurb + '</div>' + statBars(c) +
+             '<div class="car-blurb">' + c.blurb + '</div>' +
+             (save.carBest[c.id] ? '<div class="car-pb">PB ' + save.carBest[c.id].toLocaleString() + '</div>'
+                                 : '<div class="car-pb dim">no run yet</div>') + statBars(c) +
              '<div class="car-action ' + cls + '">' + action + '</div></div>';
     }).join('');
   }
@@ -1337,6 +1469,39 @@
     dailyHud.textContent = 'DAILY ' + have.toLocaleString() + ' / ' + daily.target.toLocaleString();
   }
 
+  // A one-line brag, copied to the clipboard or handed to the share sheet.
+  function shareText() {
+    var s = Math.floor(score), d = Math.floor(distance);
+    return 'BAD DRIVER \u2014 ' + s.toLocaleString() + ' points, ' + d.toLocaleString() +
+           'm in the ' + car.name + '.\n' + nearMisses + ' near misses, best combo \u00d7' +
+           (1 + Math.floor(bestCombo / 2)) + ', top speed ' + Math.round(topSpeed) + ' km/h.\n' +
+           location.href;
+  }
+
+  function flashShare(msg) {
+    var b = $('shareBtn');
+    var old = b.textContent;
+    b.textContent = msg;
+    setTimeout(function () { b.textContent = old; }, 1600);
+  }
+
+  function doShare(e) {
+    e.stopPropagation();
+    var text = shareText();
+    // The share sheet is the better experience on a phone; the clipboard is
+    // the fallback everywhere else.
+    if (navigator.share) {
+      navigator.share({ title: 'Bad Driver', text: text }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { flashShare('COPIED'); },
+                                               function () { flashShare('COPY FAILED'); });
+      return;
+    }
+    flashShare('COPY FAILED');
+  }
+
   function openPanel(p) {
     if (p === garagePanel) renderGarage(); else { renderDaily(); renderGoals(); }
     p.classList.remove('hidden');
@@ -1359,6 +1524,7 @@
   }
   menu('garageBtn', garagePanel); menu('goalsBtn', goalsPanel);
   menu('garageBtn2', garagePanel); menu('goalsBtn2', goalsPanel);
+  $('shareBtn').addEventListener('click', doShare);
   $('garageClose').addEventListener('click', function (e) { e.stopPropagation(); closePanels(); });
   $('goalsClose').addEventListener('click', function (e) { e.stopPropagation(); closePanels(); });
   garagePanel.addEventListener('click', function (e) { e.stopPropagation(); });
@@ -1514,13 +1680,16 @@
     if (isRecord) save.best = s;
     if (d > save.bestDist) save.bestDist = d;
     lastRunDist = d;
+    var carPb = save.carBest[car.id] || 0;
+    var carRecord = s > carPb;
+    if (carRecord) save.carBest[car.id] = s;
     save.totals.runs += 1;
     save.totals.dist += d;
     checkGoals();               // catches the lifetime goals this run completed
     persist();
 
-    endTitle.textContent = isRecord ? 'NEW RECORD' : 'WRECKED';
-    endTitle.classList.toggle('record', isRecord);
+    endTitle.textContent = isRecord ? 'NEW RECORD' : (carRecord ? 'BEST IN THE ' + car.name.toUpperCase() : 'WRECKED');
+    endTitle.classList.toggle('record', isRecord || carRecord);
     finalScore.textContent = s.toLocaleString();
     finalBest.textContent = save.best.toLocaleString();
     sDist.textContent = d + 'm';
@@ -1816,6 +1985,9 @@
     speed += (targetSpeed - speed) * Math.min(1, dt * 1.4);
     if (speed > topSpeed) topSpeed = speed;
     var speedNorm = (speed - BASE_SPEED) / (BASE_SPEED + SPEED_RAMP);
+    // How fast the world sweeps toward the player, in track units per second.
+    // Declared here because the ghost gate needs it before traffic does.
+    var rate = DEPTH_RATE * (speed / BASE_SPEED);
 
     // --- steering ---
     var input = steer;
@@ -1862,6 +2034,43 @@
     distance += speed * dt / 10;
     score += speed * dt * 0.06 * mult;
 
+    // The ghost gate is released a fixed distance ahead so it sweeps in like
+    // any other object rather than appearing on top of you.
+    if (ghostDist > 60 && !ghostPassed) {
+      var lead = PLAYER_T * BASE_SPEED / (10 * DEPTH_RATE);   // ~45m
+      if (ghostT < 0 && distance >= ghostDist - lead) ghostT = 0;
+      if (ghostT >= 0) {
+        ghostT += rate * dt;
+        if (ghostT >= PLAYER_T) {
+          ghostPassed = true;
+          showBanner('BEST DISTANCE PASSED', '#2ee6d6');
+          sfxRecord();
+          buzz(30);
+        }
+      }
+    }
+
+    // --- weather ---
+    if (distance >= nextWeather) {
+      weatherIdx = (weatherIdx + 1) % WEATHER.length;
+      weather = WEATHER[weatherIdx];
+      nextWeather += 1800 + Math.random() * 900;
+      if (weather !== 'clear') showBanner(weather === 'rain' ? 'RAIN' : 'FOG', '#8fb8ff');
+    }
+    weatherMix += ((weather === 'clear' ? 0 : 1) - weatherMix) * Math.min(1, dt * 0.7);
+
+    if (weather === 'rain') {
+      for (var rd = 0; rd < 3; rd++) {
+        rainDrops.push({ x: Math.random() * W, y: horizonY + Math.random() * 40,
+                         v: 900 + Math.random() * 700, len: 10 + Math.random() * 22 });
+      }
+    }
+    for (var ri = rainDrops.length - 1; ri >= 0; ri--) {
+      rainDrops[ri].y += rainDrops[ri].v * dt;
+      rainDrops[ri].x += 60 * dt;
+      if (rainDrops[ri].y > H) rainDrops.splice(ri, 1);
+    }
+
     if (distance >= nextMilestone) {
       showBanner(nextMilestone + 'm');
       sfxMilestone();
@@ -1905,7 +2114,6 @@
       }
     }
 
-    var rate = DEPTH_RATE * (speed / BASE_SPEED);
     waveT += rate * dt;
     // The spacing multiplier only ever scales the gap; the absolute floor and
     // the arrival-time fairness check still decide what can actually spawn.
@@ -2143,6 +2351,31 @@
       ctx.stroke();
     }
 
+    // ---- ghost gate ----
+    if (ghostT >= 0 && !ghostPassed && ghostT < 1) {
+      var gy = yAt(ghostT), gh = halfAt(ghostT);
+      var ga = 0.55 + 0.35 * Math.abs(Math.sin(elapsed * 4));
+      // a soft glow band, then a bright core line across the full road
+      ctx.fillStyle = 'rgba(46,230,214,' + (ga * 0.3) + ')';
+      quad(0, 1.04, ghostT, Math.min(ghostT + 0.05, 1));
+      ctx.fillStyle = 'rgba(140,255,240,' + ga + ')';
+      quad(0, 1.04, ghostT, Math.min(ghostT + 0.014, 1));
+      // posts at each shoulder so the gate reads as a marker, not a stripe
+      ctx.fillStyle = 'rgba(46,230,214,' + ga + ')';
+      for (var gs = -1; gs <= 1; gs += 2) {
+        ctx.fillRect(xAt(gs * 1.1, ghostT) - gh * 0.016, gy - gh * 0.28, gh * 0.032, gh * 0.28);
+      }
+      if (gh > 40) {
+        ctx.globalAlpha = Math.min(1, ga);
+        ctx.fillStyle = '#8cfff0';
+        ctx.font = '800 ' + Math.max(9, gh * 0.07).toFixed(0) + 'px system-ui, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('BEST', W / 2, gy - gh * 0.075);
+        ctx.textAlign = 'left';
+        ctx.globalAlpha = 1;
+      }
+    }
+
     // ---- traffic, painted far to near ----
     obstacles.sort(function (a, b) { return a.t - b.t; });
     for (var oi = 0; oi < obstacles.length; oi++) {
@@ -2206,6 +2439,34 @@
     if (overdrive > 0) {
       ctx.fillStyle = 'rgba(77,226,194,' + (0.05 + Math.sin(elapsed * 14) * 0.02) + ')';
       ctx.fillRect(0, 0, W, H);
+    }
+
+    // ---- weather ----
+    if (weather === 'rain' && rainDrops.length) {
+      ctx.strokeStyle = 'rgba(170,205,255,0.3)';
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      for (var rr = 0; rr < rainDrops.length; rr++) {
+        var dpr2 = rainDrops[rr];
+        ctx.moveTo(dpr2.x, dpr2.y);
+        ctx.lineTo(dpr2.x - 5, dpr2.y - dpr2.len);
+      }
+      ctx.stroke();
+      // wet sheen: the road picks up the neon it is lit by
+      var wet = ctx.createLinearGradient(0, horizonY, 0, H);
+      wet.addColorStop(0, 'rgba(46,230,214,0.09)');
+      wet.addColorStop(0.5, 'rgba(64,150,255,0.05)');
+      wet.addColorStop(1, 'rgba(46,230,214,0.02)');
+      ctx.fillStyle = wet;
+      ctx.fillRect(0, horizonY, W, H - horizonY);
+    }
+    if (weather === 'fog' && weatherMix > 0.01) {
+      var fg2 = ctx.createLinearGradient(0, horizonY - H * 0.05, 0, H);
+      fg2.addColorStop(0, 'rgba(150,175,215,' + (0.34 * weatherMix) + ')');
+      fg2.addColorStop(0.45, 'rgba(130,155,195,' + (0.16 * weatherMix) + ')');
+      fg2.addColorStop(1, 'rgba(120,145,185,0)');
+      ctx.fillStyle = fg2;
+      ctx.fillRect(0, horizonY - H * 0.05, W, H - horizonY + H * 0.05);
     }
 
     // ---- side motion blur ----
@@ -2639,6 +2900,7 @@
   closePanels();          // own the panel state in code, not just in markup
   refreshDaily();
   renderDaily();
+  setMusic(!!save.music);
   bestVal.textContent = save.best.toLocaleString();
   bestDistVal.textContent = save.bestDist + ' m';
   creditsVal.textContent = save.credits;
