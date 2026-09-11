@@ -1,7 +1,8 @@
-# Nightshift — Endless Drive
+# Bad Driver
 
-A single-file, mobile-first endless driving game. Weave through night traffic,
-shave past cars to build a combo, and see how far the run goes before you wreck.
+A single-file, mobile-first endless driving game with a neon-noir look. Weave
+through night traffic, shave past cars to build a combo, sweep up coins, and see
+how far the run goes before you wreck.
 
 ## Play
 
