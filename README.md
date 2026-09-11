@@ -101,10 +101,10 @@ friction is what stops people playing "one more".
   is drawn at its actual width, so a wide car looks wide. The last two cars
   also need a specific goal completed, not just the credits.
 
-- Progress is saved to `localStorage` under the `nightshift_v3` key (scores,
-  credits, owned cars, completed goals, lifetime totals). A `nightshift_v2`
-  score board from an earlier version is migrated across on first load rather
-  than being discarded.
+- Progress is saved to `localStorage` under the `baddriver_v1` key (scores,
+  credits, owned cars, completed goals, lifetime totals). Saves under the
+  earlier `nightshift_v3` and `nightshift_v2` keys are migrated across on first
+  load rather than being discarded.
 
 ## Tech
 

@@ -118,6 +118,25 @@
     z-index: 5;
   }
 
+  #pauseBtn {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 102px);
+    right: 60px;
+    width: 34px; height: 34px;
+    border-radius: 50%;
+    background: var(--ui-bg);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: var(--dim);
+    font-size: 13px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 8;
+    display: none;
+    align-items: center; justify-content: center;
+    padding: 0;
+  }
+  #pauseBtn.on { display: flex; }
+
   #muteBtn {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 102px);
@@ -170,39 +189,42 @@
     z-index: 6;
     touch-action: none;
   }
+  /* A darkened strip along the bottom so the controls sit on their own band
+     rather than on top of the brightest part of the road. */
   #wheel-zone::before {
     content: '';
     position: absolute;
     inset: auto 0 0 0;
-    height: 60%;
-    background: linear-gradient(to top, rgba(5,6,10,0.78), rgba(5,6,10,0));
+    height: 46%;
+    background: linear-gradient(to top, rgba(4,6,12,0.92) 0%, rgba(4,6,12,0.72) 45%, rgba(4,6,12,0));
     pointer-events: none;
   }
   #wheel {
-    width: min(24vw, 104px);
-    height: min(24vw, 104px);
+    width: min(15vw, 62px);
+    height: min(15vw, 62px);
     border-radius: 50%;
     position: relative;
-    margin-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
-    opacity: 0.5;
+    margin-bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+    opacity: 0.34;
     touch-action: none;
     pointer-events: none;
     transition: opacity 0.2s ease;
     filter: drop-shadow(0 4px 14px rgba(0,0,0,0.5));
   }
-  #wheel.active { opacity: 0.9; }
+  #wheel.active { opacity: 0.75; }
   #wheel svg { width: 100%; height: 100%; display: block; }
 
   #steerHint {
     position: absolute;
-    bottom: calc(min(24vw,104px) + 20px + env(safe-area-inset-bottom, 0px));
+    bottom: calc(min(15vw,62px) + 14px + env(safe-area-inset-bottom, 0px));
     left: 0; right: 0;
     text-align: center;
-    color: var(--dim);
-    font-size: 12px;
-    letter-spacing: 0.03em;
+    color: #7b8aa6;
+    font-size: 11px;
+    letter-spacing: 0.06em;
     pointer-events: none;
     transition: opacity 0.4s ease;
+    text-shadow: 0 1px 6px rgba(0,0,0,0.9);
   }
 
   /* ---------------- Overlays ---------------- */
@@ -425,6 +447,7 @@
   <div id="boostWrap"><div id="boostFill"></div></div>
   <div id="speedVal">0 km/h</div>
   <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
+  <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
   <button id="muteBtn" aria-label="Toggle sound">&#9834;</button>
 
   <div id="banner"></div>
@@ -460,6 +483,13 @@
       <button class="ghost-btn" id="goalsBtn">GOALS</button>
     </div>
     <div class="restart-hint">SPACE or tap to drive</div>
+  </div>
+
+  <div class="overlay hidden" id="pauseOverlay">
+    <h1>PAUSED</h1>
+    <p>Your run is on hold. Nothing is moving.</p>
+    <button class="play-btn" id="resumeBtn">RESUME</button>
+    <div class="restart-hint">P, ESC or tap to resume</div>
   </div>
 
   <div class="overlay hidden" id="endOverlay">
@@ -530,6 +560,7 @@
   var endNote = $('endNote'), earned = $('earned');
   var creditsHud = $('creditsHud'), creditsVal = $('creditsVal');
   var garagePanel = $('garagePanel'), goalsPanel = $('goalsPanel');
+  var pauseOverlay = $('pauseOverlay'), pauseBtn = $('pauseBtn');
   var carGrid = $('carGrid'), goalList = $('goalList');
   var garageCredits = $('garageCredits'), goalsCredits = $('goalsCredits');
 
@@ -614,32 +645,20 @@
   ];
 
   // ------------------------------------------------------------- storage
-  var KEY = 'nightshift_v3';
-  var LEGACY_KEY = 'nightshift_v2';
+  var KEY = 'baddriver_v1';
+  // Older keys, newest first. A save is migrated into the current key on load
+  // so the rename never costs anyone their scores, credits, cars or goals.
+  var LEGACY_KEYS = ['nightshift_v3', 'nightshift_v2'];
   var save = {
     best: 0, bestDist: 0, muted: false,
     credits: 0, car: 'nightshift', owned: ['nightshift'], goals: {},
     totals: { runs: 0, dist: 0, credits: 0 }
   };
 
-  function loadSave() {
-    var raw = null;
-    try { raw = localStorage.getItem(KEY); } catch (e) { return; }
-    if (!raw) {
-      // Carry the old score board across rather than wiping someone's best.
-      try {
-        var legacy = JSON.parse(localStorage.getItem(LEGACY_KEY) || 'null');
-        if (legacy && typeof legacy === 'object') {
-          if (typeof legacy.best === 'number') save.best = legacy.best;
-          if (typeof legacy.bestDist === 'number') save.bestDist = legacy.bestDist;
-          if (typeof legacy.muted === 'boolean') save.muted = legacy.muted;
-        }
-      } catch (e) {}
-      return;
-    }
-    var p;
-    try { p = JSON.parse(raw); } catch (e) { return; }
-    if (!p || typeof p !== 'object') return;
+  // Every field is type-checked individually, so this reads both the current
+  // shape and the older ones that only carried a score board.
+  function applySave(p) {
+    if (!p || typeof p !== 'object') return false;
     if (typeof p.best === 'number') save.best = p.best;
     if (typeof p.bestDist === 'number') save.bestDist = p.bestDist;
     if (typeof p.muted === 'boolean') save.muted = p.muted;
@@ -660,12 +679,30 @@
         if (typeof p.totals[k] === 'number') save.totals[k] = p.totals[k];
       });
     }
+    return true;
   }
-  loadSave();
+
+  function readKey(k) {
+    try {
+      var raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }   // private mode, or a corrupt payload
+  }
+
+  function loadSave() {
+    if (applySave(readKey(KEY))) return;
+    for (var i = 0; i < LEGACY_KEYS.length; i++) {
+      if (applySave(readKey(LEGACY_KEYS[i]))) {
+        persist();               // carry it forward so this only happens once
+        return;
+      }
+    }
+  }
 
   function persist() {
     try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {}
   }
+  loadSave();
 
   function owns(id) { return save.owned.indexOf(id) !== -1; }
   function goalDone(id) { return !!save.goals[id]; }
@@ -907,6 +944,9 @@
   var shake = 0, flash = 0, flashSide = 0, offroad = 0, creditFlash = 0;
   var nextMilestone = 500, beatBest = false, deathTimer = 0;
   var creditsRun = 0, overdrives = 0;
+  // Traffic breathes rather than arriving at a constant rate: a surge packs
+  // the waves closer, a breather opens the road up (and pays better).
+  var mood = 'normal', moodTimer = 6, surges = 0;
   var car = carById(save.car);        // stats of the car being driven
   var earnedThisRun = [];             // goals completed during this run
 
@@ -922,6 +962,7 @@
     shake = 0; flash = 0; offroad = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     creditsRun = 0; overdrives = 0; earnedThisRun = [];
+    mood = 'normal'; moodTimer = 6; surges = 0;
     applyWheel();
     updateCombo();
   }
@@ -998,9 +1039,14 @@
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (panelOpen()) closePanels();
+      else if (paused) setPaused(false);
       else if (state === 'ready' || state === 'over') start();
     }
-    if (e.key === 'Escape' && panelOpen()) closePanels();
+    if (e.key === 'p' || e.key === 'P') togglePause();
+    if (e.key === 'Escape') {
+      if (panelOpen()) closePanels();
+      else togglePause();
+    }
     if (e.key === 'm' || e.key === 'M') { resumeAudio(); setMuted(!save.muted); }
   });
   window.addEventListener('keyup', function (e) {
@@ -1156,13 +1202,42 @@
     updateHud();
   });
 
+  // ------------------------------------------------------------- pause
+  var paused = false;
+
+  function setPaused(p) {
+    if (p === paused) return;
+    if (p && state !== 'playing') return;      // only an active run can pause
+    paused = p;
+    pauseOverlay.classList.toggle('hidden', !p);
+    if (p) {
+      engineLevel(0, 0);
+      dragging = false;
+      wheelEl.classList.remove('active');
+    }
+  }
+  function togglePause() { setPaused(!paused); }
+
+  pauseBtn.addEventListener('click', function (e) { e.stopPropagation(); togglePause(); });
+  $('resumeBtn').addEventListener('click', function (e) { e.stopPropagation(); setPaused(false); });
+  pauseOverlay.addEventListener('click', function (e) { e.stopPropagation(); setPaused(false); });
+
+  // Losing the tab mid-run should not cost you the run.
+  document.addEventListener('visibilitychange', function () {
+    if (document.hidden) setPaused(true);
+  });
+  window.addEventListener('blur', function () { setPaused(true); });
+
   // ------------------------------------------------------------- flow
   function start() {
-    if (state === 'dying' || panelOpen()) return;
+    if (state === 'dying' || panelOpen() || paused) return;
     closePanels();
     resumeAudio();
     reset();
     state = 'playing';
+    paused = false;
+    pauseOverlay.classList.add('hidden');
+    pauseBtn.classList.add('on');
     startOverlay.classList.add('hidden');
     endOverlay.classList.add('hidden');
     steerHint.style.opacity = '1';
@@ -1172,6 +1247,7 @@
   function crash() {
     if (state !== 'playing') return;
     state = 'dying';
+    pauseBtn.classList.remove('on');
     deathTimer = 0;
     shake = 22;
     sfxCrash();
@@ -1316,7 +1392,7 @@
       obstacles.push(o);
     }
 
-    if (!ambient && Math.random() < 0.75) spawnCredits(pick.free, pick.blocked);
+    if (!ambient && Math.random() < (mood === 'breather' ? 1 : 0.72)) spawnCredits(pick.free, pick.blocked);
   }
 
   // ------------------------------------------------------------- pickups
@@ -1548,10 +1624,31 @@
       if (overdrive <= 0) { overdrive = 0; boostWrap.classList.remove('od'); }
     }
 
-    // --- traffic ---
+    // --- traffic rhythm ---
+    moodTimer -= dt;
+    if (moodTimer <= 0) {
+      if (mood === 'normal') {
+        // Surges only once the run has warmed up, so the opening stays fair.
+        var wantSurge = elapsed > 18 && Math.random() < 0.42;
+        mood = wantSurge ? 'surge' : 'breather';
+        moodTimer = wantSurge ? 4 + Math.random() * 3 : 2.5 + Math.random() * 2.5;
+        if (wantSurge) {
+          surges++;
+          showBanner('RUSH HOUR', '#ff2d46');
+          sfxMilestone();
+        }
+      } else {
+        mood = 'normal';
+        moodTimer = 5 + Math.random() * 5;
+      }
+    }
+
     var rate = DEPTH_RATE * (speed / BASE_SPEED);
     waveT += rate * dt;
-    var gap = Math.max(0.24, 0.46 - elapsed * 0.003);
+    // The spacing multiplier only ever scales the gap; the absolute floor and
+    // the arrival-time fairness check still decide what can actually spawn.
+    var moodGap = mood === 'surge' ? 0.74 : (mood === 'breather' ? 1.6 : 1);
+    var gap = Math.max(0.24, (0.46 - elapsed * 0.003) * moodGap);
     if (waveT >= gap) { spawnWave(false); waveT = 0; }
 
     var hitLat = (CAR_HALF * car.hitbox + OBS_HALF) * (overdrive > 0 ? 0.7 : HIT_FORGIVE);
@@ -2221,6 +2318,14 @@
     if (!(dt > 0)) dt = 0.016;
     dt = Math.min(dt, 0.05);
     last = now;
+
+    if (paused) {
+      // Keep painting the frozen frame, and keep `last` current so resuming
+      // does not hand the simulation one enormous timestep.
+      render();
+      requestAnimationFrame(tick);
+      return;
+    }
 
     if (state === 'playing') {
       curSteer = keyLeft ? -1 : (keyRight ? 1 : steer);
