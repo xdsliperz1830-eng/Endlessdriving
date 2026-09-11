@@ -1117,54 +1117,136 @@
   // is off by default because background music is the one thing that can make
   // a browser game worse without being asked.
   var music = { on: false, bus: null, next: 0, step: 0, timer: null };
-  var BASS = [0, 0, 3, 0, 5, 3, 0, 7];          // semitones over the root
-  var ARP  = [12, 15, 19, 15, 12, 19, 22, 19];
+
+  // --- the track -----------------------------------------------------------
+  // Outrun in A minor: a four-bar progression with a real hook over it, rather
+  // than one bar looping on a static root. Sixteen sixteenth-notes per bar,
+  // four bars, so the whole thing comes round every 64 steps.
   var ROOT = 55;                                 // A1
-  var STEP_T = 0.16;
+  var PROG = [0, -4, 3, -2];                     // Am  F  C  G, per bar
+  var STEPS_PER_BAR = 16, BARS = 4;
+
+  // Driving eighths with octave kicks — the engine of the whole thing.
+  var BASS = [
+    0, null,  0, null, 12, null,  0, null,
+    0, null, 12, null,  0, null,  7, null
+  ];
+
+  // The hook, on eighth notes: eight per bar, thirty-two in all. Semitones
+  // above A, straight out of the natural minor scale.
+  var LEAD = [
+    /* Am */  7, null, 12,   14,   15, null,   14, null,
+    /* F  */ 12, null, 15,   17,   15, null,   12, null,
+    /* C  */ 10, null,  7,   10,   12, null,   15, null,
+    /* G  */ 14, null, 17,   14,   12,   10,   12, null
+  ];
+
+  // Four on the floor, backbeat on 2 and 4, straight sixteenth hats.
+  function isKick(s)  { return s % 4 === 0; }
+  function isSnare(s) { return s === 4 || s === 12; }
+  function isHat(s)   { return s % 2 === 0; }
 
   function noteHz(semi) { return ROOT * Math.pow(2, semi / 12); }
 
-  function musicVoice(freq, dur, type, vol, at, filt) {
+  // Tempo lifts a little with speed, which is enough to feel like the track is
+  // pushing without the pattern ever drifting off the audio clock.
+  function stepTime() {
+    var lift = state === 'playing'
+      ? Math.min(1, Math.max(0, (speed - BASE_SPEED) / 320)) : 0;
+    return 0.136 - lift * 0.019;                 // ~110 bpm up to ~128 bpm
+  }
+
+  function synth(freq, dur, type, vol, at, filt, glideTo) {
     var o = actx.createOscillator(); o.type = type;
     var g = actx.createGain();
     var f = actx.createBiquadFilter();
     f.type = 'lowpass'; f.frequency.value = filt;
     o.frequency.setValueAtTime(freq, at);
+    if (glideTo) o.frequency.exponentialRampToValueAtTime(glideTo, at + dur * 0.9);
     g.gain.setValueAtTime(0.0001, at);
-    g.gain.exponentialRampToValueAtTime(vol, at + 0.015);
+    g.gain.exponentialRampToValueAtTime(vol, at + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
     o.connect(f); f.connect(g); g.connect(music.bus);
     o.start(at); o.stop(at + dur + 0.02);
+    return o;
+  }
+
+  function drumNoise(at, dur, hp, vol) {
+    if (!noiseBuf) return;
+    var s = actx.createBufferSource(); s.buffer = noiseBuf;
+    var f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = hp;
+    var g = actx.createGain();
+    g.gain.setValueAtTime(vol, at);
+    g.gain.exponentialRampToValueAtTime(0.0001, at + dur);
+    s.connect(f); f.connect(g); g.connect(music.bus);
+    s.start(at); s.stop(at + dur + 0.02);
+  }
+
+  function kick(at) {
+    // a sine dropping in pitch is the whole trick
+    synth(120, 0.16, 'sine', 0.34, at, 400, 42);
+  }
+  function snare(at) {
+    drumNoise(at, 0.13, 1400, 0.15);
+    synth(165, 0.09, 'triangle', 0.07, at, 900);   // E, so it sits in the key
   }
 
   function musicTick() {
     if (!music.on || !actx || !music.bus) return;
     var now = actx.currentTime;
-    // Schedule everything that falls inside the next quarter second.
+    var st = stepTime();
+    // Schedule everything falling inside the next quarter second.
     while (music.next < now + 0.25) {
       var at = Math.max(music.next, now + 0.01);
-      var i = music.step % 8;
-      var lift = state === 'playing' ? Math.min(1, Math.max(0, (speed - BASE_SPEED) / 300)) : 0;
-      musicVoice(noteHz(BASS[i]), STEP_T * 1.6, 'sawtooth', 0.075, at, 400 + lift * 900);
-      if (overdrive > 0 || (lift > 0.35 && i % 2 === 0)) {
-        musicVoice(noteHz(ARP[i]) * 2, STEP_T * 0.7, 'square', 0.022 + lift * 0.016, at,
-                   1600 + lift * 2400);
+      var step = music.step % (STEPS_PER_BAR * BARS);
+      var bar = Math.floor(step / STEPS_PER_BAR);
+      var s = step % STEPS_PER_BAR;
+      var root = PROG[bar];
+
+      // Intensity gates the layers, so the track opens up as the run does.
+      var lift = state === 'playing'
+        ? Math.min(1, Math.max(0, (speed - BASE_SPEED) / 300)) : 0;
+      var hot = overdrive > 0;
+
+      // bass
+      if (BASS[s] !== null) {
+        synth(noteHz(PROG[bar] + BASS[s]), st * 1.7, 'sawtooth',
+              0.10, at, 320 + lift * 900);
       }
-      if (i === 0 || i === 4) noiseHit(at);
-      music.next += STEP_T;
+
+      // pad: a quiet root-and-fifth bed, once a bar
+      if (s === 0) {
+        synth(noteHz(root + 12), st * STEPS_PER_BAR * 0.95, 'sawtooth', 0.018, at, 700);
+        synth(noteHz(root + 19), st * STEPS_PER_BAR * 0.95, 'sawtooth', 0.014, at, 700);
+      }
+
+      // the hook, once the run has some pace behind it
+      if (s % 2 === 0) {
+        var n = LEAD[bar * 8 + (s >> 1)];
+        if (n !== null) {
+          var vol = 0.032 + lift * 0.038 + (hot ? 0.02 : 0);
+          synth(noteHz(n + 12), st * 1.9, 'square', vol, at, 2200 + lift * 2200);
+          // overdrive doubles the hook an octave up
+          if (hot) synth(noteHz(n + 24), st * 1.5, 'square', vol * 0.5, at, 5000);
+        }
+      }
+
+      // drums
+      if (isKick(s)) kick(at);
+      if (isSnare(s)) snare(at);
+      if (isHat(s)) {
+        var open = hot && s % 8 === 6;
+        drumNoise(at, open ? 0.16 : 0.028, 7000,
+                  (s % 4 === 0 ? 0.05 : 0.032) * (0.6 + lift * 0.5));
+      }
+      // a fill closes the last bar so the loop resolves instead of just repeating
+      if (bar === BARS - 1 && s >= 14) {
+        drumNoise(at, 0.07, 1200, 0.12);
+      }
+
+      music.next += st;
       music.step++;
     }
-  }
-
-  function noiseHit(at) {
-    if (!noiseBuf) return;
-    var s = actx.createBufferSource(); s.buffer = noiseBuf;
-    var f = actx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 5000;
-    var g = actx.createGain();
-    g.gain.setValueAtTime(0.045, at);
-    g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06);
-    s.connect(f); f.connect(g); g.connect(music.bus);
-    s.start(at); s.stop(at + 0.09);
   }
 
   function setMusic(on) {
