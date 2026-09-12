@@ -489,6 +489,20 @@
   }
   #dailyHud.done { color: var(--mint); }
 
+  #shieldHud {
+    position: absolute;
+    top: calc(env(safe-area-inset-top, 0px) + 150px);
+    left: 18px;
+    background: rgba(7, 11, 22, 0.82);
+    border: 1px solid rgba(182,255,238,0.45);
+    border-radius: 999px;
+    padding: 4px 12px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    color: #b6ffee;
+    z-index: 5;
+  }
+  #shieldHud.hidden { display: none; }
+
   #earned { font-size: 12px; color: var(--mint); margin: 0 0 12px; min-height: 0; }
   #nextUp {
     font-size: 12px; color: var(--dim); margin: 0 0 14px;
@@ -529,6 +543,7 @@
   <div id="speedVal">0 km/h</div>
   <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
   <div id="dailyHud"></div>
+  <div id="shieldHud" class="hidden">&#10023; SHIELD</div>
   <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
   <button id="musicBtn" aria-label="Toggle music">&#9835;</button>
   <button id="muteBtn" aria-label="Toggle sound">&#9834;</button>
@@ -643,6 +658,7 @@
   var distVal = $('distVal'), bestDistVal = $('bestDistVal');
   var comboChip = $('comboChip'), comboMult = $('comboMult'), comboCount = $('comboCount');
   var boostWrap = $('boostWrap'), boostFill = $('boostFill'), nextUp = $('nextUp');
+  var shieldHud = $('shieldHud');
   var banner = $('banner'), muteBtn = $('muteBtn');
   var startOverlay = $('startOverlay'), endOverlay = $('endOverlay');
   var startBtn = $('startBtn'), retryBtn = $('retryBtn');
@@ -1211,6 +1227,8 @@
   function sfxRecord() { tone(523, 0.13, 0.22); setTimeout(function () { tone(659, 0.13, 0.22); }, 100); setTimeout(function () { tone(880, 0.3, 0.24); }, 200); }
   function sfxCrash() { noise(0.7, 220, 0.5, 0.55, 'lowpass'); tone(90, 0.5, 0.30, 'square', 40); }
   function sfxCredit(v) { tone(v > 1 ? 1046 : 784, 0.11, 0.17, 'sine', v > 1 ? 1568 : 1175, slotAt('credit', 0.055)); }
+  function sfxShield() { tone(523, 0.12, 0.19, 'sine'); tone(1046, 0.26, 0.17, 'sine', 1568, slotAt('shield', 0.10)); }
+  function sfxShieldBreak() { noise(0.34, 620, 0.9, 0.55); tone(300, 0.30, 0.24, 'square', 120); }
   function sfxStreak(n) {
     var base = 523 * Math.pow(2, Math.min(n, 9) / 12);
     tone(base, 0.10, 0.20, 'triangle');
@@ -1437,10 +1455,21 @@
   // the moment a run stops being ordinary, so it gets a marker you can see
   // coming rather than a number on the end card.
   var ghostDist = 0, ghostT = -1, ghostPassed = false;
-  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0, odHold = 0;
+  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0, odHold = 0, shield = false;
   // Traffic breathes rather than arriving at a constant rate: a surge packs
   // the waves closer, a breather opens the road up (and pays better).
   var mood = 'normal', moodTimer = 6, surges = 0;
+  // A run was a flat curve with random surges and nothing to tell anyone about
+  // afterwards. Every so often the road becomes a named stretch that changes
+  // exactly one rule, so a run has a shape and a story. Kept deliberately
+  // small: one lever each, and none of them touch the fairness checks.
+  var STRETCHES = [
+    { id: 'works',   name: 'ROADWORKS',  coneBias: 0.55, gapMul: 1.15 },
+    { id: 'tunnel',  name: 'TUNNEL',     tunnel: true,   gapMul: 1.00 },
+    { id: 'express', name: 'EXPRESSWAY', speedMul: 1.10, gapMul: 1.25 }
+  ];
+  var stretch = null, nextStretch = 550, stretchEnd = 0, tunnelMix = 0;
+
   // Weather turns over every few thousand metres so a long run visibly travels
   // somewhere. It is cosmetic only — nothing about it changes the hitboxes or
   // the spawner, so a wet road never costs you a run you would otherwise win.
@@ -1466,12 +1495,14 @@
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
     creditsRun = 0; overdrives = 0; earnedThisRun = []; odHold = 0;
+    setShield(false);
     boostWrap.classList.remove('ready');
     setHint(HINT_STEER);
     clearBanners();
     continues = 0; invuln = 0;
     mood = 'normal'; moodTimer = 6; surges = 0;
     weather = 'clear'; weatherIdx = 0; nextWeather = 1800; weatherMix = 0; rainDrops = [];
+    stretch = null; nextStretch = 550; stretchEnd = 0; tunnelMix = 0;
     applyWheel();
     updateCombo();
   }
@@ -1837,6 +1868,7 @@
     // Overdrive stops ticking down while you are dying, so carrying its
     // remainder across a continue handed back a shrunken hitbox at random.
     overdrive = 0; boost = 0; odHold = 0;
+    setShield(false);
     boostWrap.classList.remove('od');
     boostWrap.classList.remove('ready');
     if (steerHint.classList.contains('boost')) setHint(HINT_STEER);
@@ -1903,6 +1935,29 @@
       // Never fade out the overdrive prompt on the opening timer.
       if (state === 'playing' && !steerHint.classList.contains('boost')) steerHint.style.opacity = '0';
     }, 2600);
+  }
+
+  // Spending the shield has to feel like the crash it replaced, or it reads as
+  // the hit simply not registering.
+  function breakShield() {
+    setShield(false);
+    invuln = 1.3;
+    combo = 0; mult = 1; streakLevel = 0; updateCombo();
+    shake = 16;
+    showBanner('SHIELD GONE', '#ff2d46');
+    sfxShieldBreak();
+    buzz([30, 40, 30]);
+    var cx = xAt(px, PLAYER_T);
+    for (var i = 0; i < 22; i++) {
+      particles.push({
+        x: cx, y: playerY - playerHalfPx,
+        vx: (Math.random() - 0.5) * 380,
+        vy: (Math.random() - 1.1) * 260,
+        life: 0.35 + Math.random() * 0.4, maxLife: 0.75,
+        color: Math.random() > 0.4 ? '#b6ffee' : '#8cfff0',
+        size: 1.5 + Math.random() * 3
+      });
+    }
   }
 
   function crash() {
@@ -2039,7 +2094,7 @@
 
   function spawnWave(ambient) {
     var rate = DEPTH_RATE * (speed / BASE_SPEED);
-    var cone = !ambient && Math.random() < 0.2;
+    var cone = !ambient && Math.random() < (stretch && stretch.coneBias ? stretch.coneBias : 0.2);
     // One closing speed for the whole wave, so a wave arrives as a wave.
     var closing = cone ? 1 : (0.5 + Math.random() * 0.28);
     var etaNew = PLAYER_T / (rate * closing);
@@ -2119,6 +2174,26 @@
     }
 
     if (!ambient && Math.random() < (mood === 'breather' ? 1 : 0.72)) spawnCredits(pick.free, pick.blocked);
+    maybeSpawnShield(ambient, pick.free);
+  }
+
+  // One hit of forgiveness, and the only thing in the game that undoes a
+  // mistake. Rare on purpose: a third of runs used to end inside fifteen
+  // seconds, and the runs worth remembering are the ones that should have
+  // ended and did not.
+  function maybeSpawnShield(ambient, freeLanes) {
+    if (ambient || shield || !freeLanes.length) return;
+    if (distance < 500) return;
+    for (var i = 0; i < pickups.length; i++) if (pickups[i].kind === 'shield') return;
+    // 3.5% a wave put a shield in front of nearly everyone and pushed the
+    // median run from 24s to 32s. At 1.5% roughly a quarter of runs see one
+    // and the median sits where it was: forgiveness for the run that earned
+    // it, not a safety rail under every run.
+    if (Math.random() > 0.015) return;
+    pickups.push({
+      lat: LANE_LAT[freeLanes[Math.floor(Math.random() * freeLanes.length)]],
+      t: 0, kind: 'shield', value: 0, taken: false, absorb: 0
+    });
   }
 
   // ------------------------------------------------------------- pickups
@@ -2155,7 +2230,20 @@
     }
   }
 
+  function setShield(on) {
+    shield = on;
+    shieldHud.classList.toggle('hidden', !on);
+  }
+
   function collect(p) {
+    if (p.kind === 'shield') {
+      setShield(true);
+      popup('SHIELD', p.lat >= px ? 1 : -1, '#b6ffee', 16);
+      showBanner('SHIELD \u2014 ONE HIT SPARED', '#b6ffee');
+      sfxShield();
+      buzz(30);
+      return;
+    }
     var gained = Math.max(1, Math.round(p.value * car.cash));
     creditsRun += gained;
     save.credits += gained;
@@ -2382,6 +2470,7 @@
     // --- speed ---
     targetSpeed = (BASE_SPEED + Math.min(elapsed * 7, SPEED_RAMP)) * car.top;
     if (overdrive > 0) targetSpeed *= 1.32;
+    if (stretch && stretch.speedMul) targetSpeed *= stretch.speedMul;
     speed += (targetSpeed - speed) * Math.min(1, dt * 1.4);
     if (speed > topSpeed) topSpeed = speed;
     var speedNorm = (speed - BASE_SPEED) / (BASE_SPEED + SPEED_RAMP);
@@ -2449,6 +2538,18 @@
         }
       }
     }
+
+    // --- stretches ---
+    if (!stretch && distance >= nextStretch) {
+      stretch = STRETCHES[Math.floor(Math.random() * STRETCHES.length)];
+      stretchEnd = distance + 420 + Math.random() * 280;
+      showBanner(stretch.name, '#8fb8ff');
+      sfxMilestone();
+    } else if (stretch && distance >= stretchEnd) {
+      stretch = null;
+      nextStretch = distance + 800 + Math.random() * 600;
+    }
+    tunnelMix += (((stretch && stretch.tunnel) ? 1 : 0) - tunnelMix) * Math.min(1, dt * 1.6);
 
     // --- weather ---
     if (distance >= nextWeather) {
@@ -2533,7 +2634,8 @@
     // zero. Pair on the seed if you retune this: unpaired samples of 200 swing
     // the median by 17% on identical code, which is wider than the effect.
     var opening = OPEN_GAP * Math.max(0, 1 - elapsed / OPEN_RAMP);
-    var gap = Math.max(0.24, (0.46 + opening - elapsed * 0.003) * moodGap);
+    var gap = Math.max(0.24, (0.46 + opening - elapsed * 0.003) * moodGap *
+                              (stretch ? stretch.gapMul : 1));
     if (waveT >= gap) { spawnWave(false); waveT = 0; }
 
     var forgive = overdrive > 0 ? 0.7 : HIT_FORGIVE;
@@ -2556,7 +2658,9 @@
         var dx = Math.abs(o.lat - px);
         var oHalf = o.half || OBS_HALF;
         if (dx < (CAR_HALF * car.hitbox + oHalf) * forgive) {
-          if (invuln <= 0) { crash(); return; }
+          if (invuln > 0) { /* still shrugging off the last one */ }
+          else if (shield) { breakShield(); }
+          else { crash(); return; }
         } else if (dx < oHalf + nearPad) nearMiss(o);
       }
     }
@@ -2655,10 +2759,51 @@
     ctx.fillRect(-40, -40, W + 80, horizonY + 40);
 
     // ---- city, parallaxed against your position on the road ----
-    if (skyline) {
+    if (skyline && tunnelMix < 0.99) {
       var off = (W * 0.3) - px * W * 0.06;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = 0.9 * (1 - tunnelMix);
       ctx.drawImage(skyline, -off, horizonY - skyline.height);
+      ctx.globalAlpha = 1;
+    }
+
+    // ---- roof and walls, when the road has gone underground ----
+    if (tunnelMix > 0.01) {
+      ctx.globalAlpha = tunnelMix;
+      var wall = ctx.createLinearGradient(0, 0, 0, horizonY);
+      wall.addColorStop(0, '#05070c');
+      wall.addColorStop(1, '#121927');
+      ctx.fillStyle = wall;
+      ctx.fillRect(-40, -40, W + 80, horizonY + 40);
+
+      // The ceiling is a trapezoid converging on the vanishing point; what is
+      // left either side of it reads as wall. Two converging edges are what
+      // make it a tunnel rather than a dark sky.
+      var ceil = ctx.createLinearGradient(0, 0, 0, horizonY);
+      ceil.addColorStop(0, '#171f2b');
+      ceil.addColorStop(1, '#2b3547');
+      ctx.fillStyle = ceil;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.10, -40);
+      ctx.lineTo(W * 0.90, -40);
+      ctx.lineTo(W / 2 + farHalf * 2.2, horizonY);
+      ctx.lineTo(W / 2 - farHalf * 2.2, horizonY);
+      ctx.closePath();
+      ctx.fill();
+
+      // Strip lights down the middle of it, on the road's easing mirrored:
+      // near lights sit high and wide, far ones collapse to the vanishing
+      // point. They fade out at the very top so they stay clear of the HUD.
+      for (var ci = 0; ci < 12; ci++) {
+        var ct = ((dashPhase * 4) % 0.09) + ci * 0.09;
+        if (ct > 1.02) continue;
+        var cp = persp(ct);
+        var cy = horizonY - horizonY * 0.97 * cp;
+        var cw = W * 0.26 * cp + W * 0.012;
+        var fade = Math.min(1, cy / (H * 0.10));        // ease off near the top
+        if (fade <= 0.01) continue;
+        ctx.fillStyle = 'rgba(255,214,140,' + (fade * (0.16 + 0.55 * cp)).toFixed(3) + ')';
+        ctx.fillRect(W / 2 - cw / 2, cy, cw, Math.max(1, 3.5 * cp + 1));
+      }
       ctx.globalAlpha = 1;
     }
 
@@ -2676,7 +2821,11 @@
     haze.addColorStop(0.72, 'rgba(46,230,214,0.10)');
     haze.addColorStop(1, 'rgba(46,230,214,0)');
     ctx.fillStyle = haze;
+    // Underground there is no sky to glow, and leaving it on read as a horizon
+    // pasted behind the tunnel mouth.
+    ctx.globalAlpha = 1 - tunnelMix * 0.85;
     ctx.fillRect(-40, horizonY - H * 0.14, W + 80, H * 0.22);
+    ctx.globalAlpha = 1;
 
     // ---- road surface ----
     var yb = H + Math.abs(sy) + 40;
@@ -3130,6 +3279,7 @@
     }
     if (a <= 0.01) return;
     var s = halfAt(p.t);
+    if (p.kind === 'shield') { drawShield(p, base, a, shrink, s); return; }
     var hiVal = p.value > 1;
     var r = s * (hiVal ? 0.105 : 0.075) * shrink;
     var bob = Math.sin(elapsed * 5 + p.t * 22) * r * 0.5;
@@ -3197,6 +3347,49 @@
       ctx.fill();
       ctx.globalCompositeOperation = 'source-over';
     }
+    ctx.restore();
+  }
+
+  // A chevron rather than a ring: the one pickup that is not money should not
+  // share a silhouette with the ones that are.
+  function drawShield(p, base, a, shrink, s) {
+    var r = s * 0.115 * shrink;
+    var bob = Math.sin(elapsed * 5 + p.t * 22) * r * 0.45;
+    var y = base - r * 2.7 + bob;
+    var pulse = 1 + Math.sin(elapsed * 4.5 + p.t * 8) * 0.07;
+
+    ctx.save();
+    ctx.globalAlpha = a;
+    ctx.fillStyle = 'rgba(140,255,240,0.20)';
+    ctx.beginPath();
+    ctx.ellipse(xAt(p.lat, p.t), base, r * 1.6, r * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.translate(xAt(p.lat, p.t), y);
+    ctx.fillStyle = 'rgba(140,255,240,0.22)';
+    ctx.beginPath();
+    ctx.arc(0, 0, r * 2.2 * pulse, 0, Math.PI * 2);
+    ctx.fill();
+
+    function crest(k) {
+      ctx.beginPath();
+      ctx.moveTo(0, -r * 1.25 * k);
+      ctx.lineTo(r * k, -r * 0.45 * k);
+      ctx.lineTo(r * k, r * 0.35 * k);
+      ctx.lineTo(0, r * 1.25 * k);
+      ctx.lineTo(-r * k, r * 0.35 * k);
+      ctx.lineTo(-r * k, -r * 0.45 * k);
+      ctx.closePath();
+    }
+    var sg = ctx.createLinearGradient(0, -r * 1.2, 0, r * 1.2);
+    sg.addColorStop(0, '#eafffb');
+    sg.addColorStop(0.5, '#8cfff0');
+    sg.addColorStop(1, '#2ee6d6');
+    ctx.fillStyle = sg;
+    crest(1); ctx.fill();
+    ctx.globalCompositeOperation = 'destination-out';
+    crest(0.52); ctx.fill();
+    ctx.globalCompositeOperation = 'source-over';
     ctx.restore();
   }
 
