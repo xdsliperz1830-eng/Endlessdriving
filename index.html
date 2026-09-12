@@ -921,6 +921,18 @@
   var P_PLAYER = persp(PLAYER_T);
   var playerY, playerHalfPx;
 
+  // Mobile browsers fire resize continuously while the URL bar slides in and
+  // out, and rebuilding the skyline -- a few hundred rects into a fresh canvas
+  // 1.6 screens wide -- is much the most expensive thing here. Update the
+  // geometry on every event, let the city catch up once the size settles; a
+  // slightly stale skyline is wider than the screen, so nothing shows a seam.
+  var skylineTimer = null;
+  function scheduleSkyline() {
+    if (!skyline) { buildSkyline(); return; }
+    clearTimeout(skylineTimer);
+    skylineTimer = setTimeout(buildSkyline, 150);
+  }
+
   function resize() {
     DPR = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth;
@@ -941,7 +953,7 @@
 
     playerY = yAt(PLAYER_T);
     playerHalfPx = CAR_HALF * halfAt(PLAYER_T);
-    buildSkyline();
+    scheduleSkyline();
   }
 
   // Pre-rendered city silhouette; it only changes on resize.
@@ -1407,6 +1419,9 @@
     obstacles = []; pickups = []; particles = []; popups = [];
     waveT = 99; lastOpenLane = 1;
     shake = 0; flash = 0; scraping = 0;
+    // Dying mid-overdrive left update() unable to clear this, so the boost bar
+    // stayed in its overdrive colour into the next run.
+    boostWrap.classList.remove('od');
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
     creditsRun = 0; overdrives = 0; earnedThisRun = [];
@@ -1636,15 +1651,22 @@
     var s = Math.floor(score), d = Math.floor(distance);
     return 'BAD DRIVER \u2014 ' + s.toLocaleString() + ' points, ' + d.toLocaleString() +
            'm in the ' + car.name + '.\n' + nearMisses + ' near misses, best combo \u00d7' +
-           (1 + Math.floor(bestCombo / 2)) + ', top speed ' + Math.round(topSpeed) + ' km/h.\n' +
+           // the multiplier is capped in play, so quoting combo/2 raw bragged
+           // about a x170 that never existed
+           Math.min(MAX_MULT, 1 + Math.floor(bestCombo / 2)) +
+           ', top speed ' + Math.round(topSpeed) + ' km/h.\n' +
            location.href;
   }
 
+  // Reading the current label to restore it meant a second share inside the
+  // window captured "COPIED" and left the button saying that for good.
+  var shareLabel = null, shareTimer = null;
   function flashShare(msg) {
     var b = $('shareBtn');
-    var old = b.textContent;
+    if (shareLabel === null) shareLabel = b.textContent;
     b.textContent = msg;
-    setTimeout(function () { b.textContent = old; }, 1600);
+    clearTimeout(shareTimer);
+    shareTimer = setTimeout(function () { b.textContent = shareLabel; }, 1600);
   }
 
   function doShare(e) {
@@ -1751,6 +1773,10 @@
     px = 0; pvx = 0; steer = 0; wheelAngle = 0;
     applyWheel();
     combo = 0; mult = 1; updateCombo();
+    // Overdrive stops ticking down while you are dying, so carrying its
+    // remainder across a continue handed back a shrunken hitbox at random.
+    overdrive = 0; boost = 0;
+    boostWrap.classList.remove('od');
     invuln = 2.4;
     waveT = -0.5;
     shake = 0;
@@ -2080,10 +2106,15 @@
     // Beside the car, but never so far out that it clips the screen edge.
     var pad = Math.max(30, W * 0.11);
     var x = xAt(px, PLAYER_T) + side * playerHalfPx * 2.1;
+    x = Math.max(pad, Math.min(W - pad, x));
+    // Two pickups a few frames apart landed on the same spot and drew over
+    // each other into an illegible smudge. Stack them instead.
+    var y = playerY - playerHalfPx * 1.9, stack = 0;
+    for (var i = 0; i < popups.length; i++) if (Math.abs(popups[i].x - x) < W * 0.07) stack++;
     popups.push({
       text: text,
-      x: Math.max(pad, Math.min(W - pad, x)),
-      y: playerY - playerHalfPx * 1.9,
+      x: x,
+      y: y - Math.min(stack, 4) * 20,
       color: color, size: size || 15, life: 0.85
     });
   }
