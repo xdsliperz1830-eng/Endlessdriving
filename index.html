@@ -664,6 +664,11 @@
   var HORIZON_F = 0.30;                // horizon height as a fraction of H
   var CAR_HALF = 0.20;                 // half-widths in road-space units
   var OBS_HALF = 0.21;
+  // A wide load spans two lane centres plus a normal car's width, so it really
+  // does shut two lanes -- and leaves the third genuinely clear rather than
+  // merely survivable. Every wave was previously "pick the gap between single
+  // cars"; this forces the decision several seconds earlier.
+  var WIDE_HALF = 2 / 3 / 2 + 0.30;
   var HIT_FORGIVE = 0.78;              // shrinks the hitbox so grazes feel fair
   var NEAR_LAT = 0.72;                 // within this (but not a hit) = near miss
   var BASE_SPEED = 250;
@@ -2070,11 +2075,34 @@
     var canDrift = !ambient && !cone && elapsed > 38 && occupied.length === 0 &&
                    pick.blocked.length === 1 && Math.random() < 0.3;
 
+    // A pair of adjacent lanes is sometimes one wide load instead of two cars.
+    // Reusing the pair that chooseWave already vetted means the fairness rules
+    // carry over untouched: same blocked lanes, same free lane.
+    var pair = pick.blocked.length === 2 && Math.abs(pick.blocked[0] - pick.blocked[1]) === 1;
+    if (pair && !cone && Math.random() < 0.45) {
+      obstacles.push({
+        lane: Math.min(pick.blocked[0], pick.blocked[1]),
+        lat: (LANE_LAT[pick.blocked[0]] + LANE_LAT[pick.blocked[1]]) / 2,
+        t: 0,
+        cone: false,
+        wide: true,
+        half: WIDE_HALF,
+        shape: 'van',
+        closing: closing,
+        color: '#5a5f52',
+        scored: false,
+        drift: 0
+      });
+      if (!ambient && Math.random() < (mood === 'breather' ? 1 : 0.72)) spawnCredits(pick.free, pick.blocked);
+      return;
+    }
+
     for (i = 0; i < pick.blocked.length; i++) {
       var lane = pick.blocked[i];
       var o = {
         lane: lane,
         lat: LANE_LAT[lane],
+        half: OBS_HALF,
         t: 0,
         cone: cone,
         shape: ['sedan', 'sedan', 'van', 'sport'][Math.floor(Math.random() * 4)],
@@ -2508,7 +2536,8 @@
     var gap = Math.max(0.24, (0.46 + opening - elapsed * 0.003) * moodGap);
     if (waveT >= gap) { spawnWave(false); waveT = 0; }
 
-    var hitLat = (CAR_HALF * car.hitbox + OBS_HALF) * (overdrive > 0 ? 0.7 : HIT_FORGIVE);
+    var forgive = overdrive > 0 ? 0.7 : HIT_FORGIVE;
+    var nearPad = NEAR_LAT - OBS_HALF;      // how far outside a car still counts
     for (var i = obstacles.length - 1; i >= 0; i--) {
       var o = obstacles[i];
       var prevT = o.t;
@@ -2525,9 +2554,10 @@
       if (!o.scored && prevT < PLAYER_T && o.t >= PLAYER_T) {
         o.scored = true;
         var dx = Math.abs(o.lat - px);
-        if (dx < hitLat) {
+        var oHalf = o.half || OBS_HALF;
+        if (dx < (CAR_HALF * car.hitbox + oHalf) * forgive) {
           if (invuln <= 0) { crash(); return; }
-        } else if (dx < NEAR_LAT) nearMiss(o);
+        } else if (dx < oHalf + nearPad) nearMiss(o);
       }
     }
 
@@ -3065,8 +3095,10 @@
     var fade = passFade(o.t);
     if (fade <= 0.01) return;
     var s = SHAPES[o.shape] || SHAPES.sedan;
-    var w = OBS_HALF * 2 * halfAt(o.t);
-    var h = w * s.hr;
+    var w = (o.half || OBS_HALF) * 2 * halfAt(o.t);
+    // Scaling the height off its own width would make a wide load three lanes
+    // tall; a lorry is wide and only somewhat taller than a van.
+    var h = o.wide ? OBS_HALF * 2 * halfAt(o.t) * s.hr * 1.3 : w * s.hr;
     var x = xAt(o.lat, o.t);
     if (base < horizonY - 4 || base - h > H + 60) return;
 
