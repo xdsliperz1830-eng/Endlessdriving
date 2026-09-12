@@ -103,6 +103,11 @@
     transition: width 0.12s linear, background 0.2s ease;
   }
   #boostWrap.od #boostFill { background: var(--mint); box-shadow: 0 0 12px var(--mint); }
+  /* Charged and waiting for you to spend it. Deliberately a steady state and
+     not a pulse: a repeating brightness change up here is exactly the thing
+     that made the old overdrive tint unpleasant to play under. */
+  #boostWrap.ready #boostFill { background: var(--mint); box-shadow: 0 0 10px var(--mint); }
+  #steerHint.boost { color: var(--mint); font-weight: 700; }
 
   #speedVal {
     position: absolute;
@@ -551,7 +556,7 @@
     <p class="tips">
       <b>Squeeze past</b> a car for bonus points<br>
       <b>Chain near misses</b> to raise the multiplier<br>
-      <b>Fill the bar</b> to trigger OVERDRIVE
+      <b>Fill the bar</b>, then <b>tap</b> to spend OVERDRIVE
     </p>
     <button class="play-btn" id="startBtn">START ENGINE</button>
     <div class="menu-row">
@@ -661,6 +666,12 @@
   var OPEN_GAP = 0.22;                 // extra wave spacing at the start of a run
   var ABSORB_T = 0.17;                 // how long a collected coin takes to shrink away
   var OVERDRIVE_TIME = 5.0;
+  // Overdrive is banked rather than fired the instant the meter fills, so
+  // spending it is a decision: burn it to punch through a wall of traffic, or
+  // hold it for the next surge. Until you have spent one by hand the game
+  // still fires it for you after a while, so nobody who misses the prompt ends
+  // up with less overdrive than before.
+  var OD_AUTOFIRE = 8.0;
   var MAX_MULT = 8;
   var STEER_RATE = 2.3;                // road-space units per second at full lock
   // The player is fenced inside the tarmac. Leaving it was a free escape:
@@ -836,7 +847,7 @@
     best: 0, bestDist: 0, muted: false,
     credits: 0, car: 'nightshift', owned: ['nightshift'], goals: {},
     totals: { runs: 0, dist: 0, credits: 0 },
-    daily: null, music: false,
+    daily: null, music: false, usedOd: false,
     carBest: {}          // best score per car, so the whole garage stays live
   };
 
@@ -848,6 +859,7 @@
     if (typeof p.bestDist === 'number') save.bestDist = p.bestDist;
     if (typeof p.muted === 'boolean') save.muted = p.muted;
     if (typeof p.music === 'boolean') save.music = p.music;
+    if (typeof p.usedOd === 'boolean') save.usedOd = p.usedOd;
     if (typeof p.credits === 'number') save.credits = Math.max(0, p.credits);
     if (Array.isArray(p.owned)) {
       // Only trust ids that still exist, and never lose the starter car.
@@ -1170,6 +1182,7 @@
   function sfxCombo(n) {
     tone(392 * Math.pow(2, Math.min(n, 16) / 12), 0.16, 0.19, 'triangle', 0, slotAt('combo', 0.06));
   }
+  function sfxArmed() { tone(660, 0.10, 0.17, 'triangle'); tone(988, 0.20, 0.15, 'triangle', 0, slotAt('armed', 0.09)); }
   function sfxOverdrive() { tone(180, 0.5, 0.24, 'sawtooth', 900); noise(0.5, 900, 0.7, 0.15); }
   function sfxMilestone() { tone(660, 0.14, 0.19); setTimeout(function () { tone(880, 0.22, 0.19); }, 110); }
   function sfxRecord() { tone(523, 0.13, 0.22); setTimeout(function () { tone(659, 0.13, 0.22); }, 100); setTimeout(function () { tone(880, 0.3, 0.24); }, 200); }
@@ -1396,7 +1409,7 @@
   // the moment a run stops being ordinary, so it gets a marker you can see
   // coming rather than a number on the end card.
   var ghostDist = 0, ghostT = -1, ghostPassed = false;
-  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0;
+  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0, odHold = 0;
   // Traffic breathes rather than arriving at a constant rate: a surge packs
   // the waves closer, a breather opens the road up (and pays better).
   var mood = 'normal', moodTimer = 6, surges = 0;
@@ -1424,7 +1437,9 @@
     boostWrap.classList.remove('od');
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
-    creditsRun = 0; overdrives = 0; earnedThisRun = [];
+    creditsRun = 0; overdrives = 0; earnedThisRun = []; odHold = 0;
+    boostWrap.classList.remove('ready');
+    setHint(HINT_STEER);
     clearBanners();
     continues = 0; invuln = 0;
     mood = 'normal'; moodTimer = 6; surges = 0;
@@ -1437,9 +1452,18 @@
   // Relative horizontal dragging anywhere in the lower band. It rubber-bands
   // its own origin, so you can always steer back no matter where you started.
   var dragging = false, dragId = null, dragX = 0, wheelAngle = 0;
+  var tapAt = 0, tapX = 0, tapY = 0, tapMoved = false;
   var MAX_ANGLE = Math.PI * 0.8;
 
   function maxDrag() { return Math.max(70, W * 0.26); }
+
+  var hintTimer = null;
+  var HINT_STEER = 'Drag anywhere down here to steer';
+  var HINT_BOOST = 'Tap to spend OVERDRIVE';
+  function setHint(text) {
+    steerHint.textContent = text;
+    steerHint.classList.toggle('boost', text === HINT_BOOST);
+  }
 
   function applyWheel() {
     wheelInner.setAttribute('transform', 'rotate(' + (wheelAngle * 180 / Math.PI).toFixed(2) + ' 100 100)');
@@ -1466,6 +1490,10 @@
     dragging = true;
     dragId = (p.identifier !== undefined) ? p.identifier : null;
     dragX = p.clientX;
+    // A tap in the steering band spends a banked overdrive. Steering is a
+    // drag, so the two never collide: this only counts as a tap if the finger
+    // barely moved and came straight back up.
+    tapAt = Date.now(); tapX = p.clientX; tapY = p.clientY; tapMoved = false;
     wheelEl.classList.add('active');
     steerHint.style.opacity = '0';
   }
@@ -1475,6 +1503,8 @@
     var p = pointFrom(e);
     if (!p) return;
     e.preventDefault();
+    if (!tapMoved &&
+        (Math.abs(p.clientX - tapX) > 12 || Math.abs(p.clientY - tapY) > 12)) tapMoved = true;
     var md = maxDrag();
     var dx = p.clientX - dragX;
     if (dx > md) { dragX = p.clientX - md; dx = md; }
@@ -1484,19 +1514,20 @@
     applyWheel();
   }
 
-  function dragEnd(e) {
+  function dragEnd(e, cancelled) {
     if (!dragging) return;
     var p = pointFrom(e);
     if (e.changedTouches && !p) return;
     dragging = false;
     dragId = null;
     wheelEl.classList.remove('active');
+    if (!cancelled && !tapMoved && Date.now() - tapAt < 300) fireOverdrive();
   }
 
   wheelZone.addEventListener('touchstart', dragStart, { passive: false });
   wheelZone.addEventListener('touchmove', dragMove, { passive: false });
   window.addEventListener('touchend', dragEnd, { passive: false });
-  window.addEventListener('touchcancel', dragEnd, { passive: false });
+  window.addEventListener('touchcancel', function (e) { dragEnd(e, true); }, { passive: false });
   wheelZone.addEventListener('mousedown', dragStart);
   window.addEventListener('mousemove', dragMove);
   window.addEventListener('mouseup', dragEnd);
@@ -1505,11 +1536,13 @@
   window.addEventListener('keydown', function (e) {
     if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') keyLeft = true;
     if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') keyRight = true;
+    if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') fireOverdrive();
     if (e.key === ' ' || e.key === 'Enter') {
       e.preventDefault();
       if (panelOpen()) closePanels();
       else if (paused) setPaused(false);
       else if (state === 'ready' || state === 'over') start();
+      else if (state === 'playing') fireOverdrive();
     }
     if (e.key === 'c' || e.key === 'C') doContinue();
     if (e.key === 'p' || e.key === 'P') togglePause();
@@ -1775,8 +1808,10 @@
     combo = 0; mult = 1; updateCombo();
     // Overdrive stops ticking down while you are dying, so carrying its
     // remainder across a continue handed back a shrunken hitbox at random.
-    overdrive = 0; boost = 0;
+    overdrive = 0; boost = 0; odHold = 0;
     boostWrap.classList.remove('od');
+    boostWrap.classList.remove('ready');
+    if (steerHint.classList.contains('boost')) setHint(HINT_STEER);
     invuln = 2.4;
     waveT = -0.5;
     shake = 0;
@@ -1836,7 +1871,10 @@
     startOverlay.classList.add('hidden');
     endOverlay.classList.add('hidden');
     steerHint.style.opacity = '1';
-    setTimeout(function () { if (state === 'playing') steerHint.style.opacity = '0'; }, 2600);
+    setTimeout(function () {
+      // Never fade out the overdrive prompt on the opening timer.
+      if (state === 'playing' && !steerHint.classList.contains('boost')) steerHint.style.opacity = '0';
+    }, 2600);
   }
 
   function crash() {
@@ -2130,7 +2168,11 @@
     // Grazes during overdrive stretch it a little rather than refilling the
     // meter, so a strong run still has to come down and earn the next one.
     if (overdrive > 0) overdrive = Math.min(OVERDRIVE_TIME, overdrive + 0.22);
-    else boost = Math.min(1, boost + 0.15 * car.boost);
+    else {
+      var wasFull = boost >= 1;
+      boost = Math.min(1, boost + 0.15 * car.boost);
+      if (!wasFull && boost >= 1) armOverdrive();
+    }
     flash = 0.5;
     flashSide = o.lat > px ? 1 : -1;
     popup('+' + pts, o.lat >= px ? 1 : -1, '#ffc02e', 15 + Math.min(mult, 6));
@@ -2144,14 +2186,46 @@
         { duration: 260, easing: 'ease' });
     }
     updateCombo();
-    if (boost >= 1 && overdrive <= 0) startOverdrive();
+  }
+
+  // The meter filling now charges overdrive rather than spending it. Holding a
+  // charge is the decision the mechanic is for: burn it to get through a wall
+  // of traffic, or save it for the next surge.
+  function armOverdrive() {
+    odHold = 0;
+    boostWrap.classList.add('ready');
+    showBanner('OVERDRIVE READY', '#4de2c2');
+    sfxArmed();
+    buzz(20);
+    setHint(HINT_BOOST);
+    steerHint.style.opacity = '1';
+    // Newcomers keep the prompt until they spend it; once the tap is known it
+    // is a reminder, not an instruction, so it gets out of the way.
+    clearTimeout(hintTimer);
+    if (save.usedOd) hintTimer = setTimeout(function () {
+      if (steerHint.classList.contains('boost')) steerHint.style.opacity = '0';
+    }, 2400);
+  }
+
+  function fireOverdrive() {
+    if (state !== 'playing' || paused || panelOpen()) return;
+    if (overdrive > 0 || boost < 1) return;
+    save.usedOd = true;
+    persist();
+    startOverdrive();
   }
 
   function startOverdrive() {
     overdrive = OVERDRIVE_TIME;
     overdrives++;
     boost = 0;
+    odHold = 0;
+    boostWrap.classList.remove('ready');
     boostWrap.classList.add('od');
+    if (steerHint.classList.contains('boost')) {
+      setHint(HINT_STEER);
+      steerHint.style.opacity = '0';
+    }
     showBanner('OVERDRIVE', '#4de2c2');
     sfxOverdrive();
     buzz(45);
@@ -2329,6 +2403,12 @@
     if (overdrive > 0) {
       overdrive -= dt;
       if (overdrive <= 0) { overdrive = 0; boostWrap.classList.remove('od'); }
+    } else if (boost >= 1 && !save.usedOd) {
+      // Only until the prompt has been understood once: a player who never
+      // works out the tap should not end up with less overdrive than the old
+      // automatic version gave them. After one deliberate use, it is theirs.
+      odHold += dt;
+      if (odHold >= OD_AUTOFIRE) startOverdrive();
     }
 
     // --- traffic rhythm ---
