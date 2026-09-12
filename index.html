@@ -2262,10 +2262,13 @@
     // the arrival-time fairness check still decide what can actually spawn.
     var moodGap = mood === 'surge' ? 0.74 : (mood === 'breather' ? 1.6 : 1);
     // Traffic eases in over the first OPEN_RAMP seconds. Without this the game
-    // opened at ~95% of its steady-state density: over 200 simulated runs a
-    // quarter ended inside fifteen seconds and 7% inside six, before the player
-    // had done anything. The ramp halves the instant deaths and leaves the
-    // median and mean run length where they were.
+    // opened at ~95% of its steady-state density: a third of simulated runs
+    // ended inside fifteen seconds and a tenth inside six, before the player
+    // had done anything. Over 300 seed-paired runs the ramp cuts the sub-six
+    // deaths from 22 to 12 and the sub-fifteen from 90 to 61, while the mean
+    // run length moves +1.7s on a 33s mean -- a confidence interval that spans
+    // zero. Pair on the seed if you retune this: unpaired samples of 200 swing
+    // the median by 17% on identical code, which is wider than the effect.
     var opening = OPEN_GAP * Math.max(0, 1 - elapsed / OPEN_RAMP);
     var gap = Math.max(0.24, (0.46 + opening - elapsed * 0.003) * moodGap);
     if (waveT >= gap) { spawnWave(false); waveT = 0; }
