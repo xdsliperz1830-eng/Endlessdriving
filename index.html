@@ -1322,9 +1322,9 @@
   var combo = 0, bestCombo = 0, comboTimer = 0, mult = 1;
   var nearMisses = 0;
   var boost = 0, overdrive = 0;
-  var obstacles = [], pickups = [], particles = [], popups = [];
+  var obstacles = [], pickups = [], particles = [], popups = [], bursts = [];
   var dashPhase = 0, waveT = 99, lastOpenLane = 1;
-  var shake = 0, flash = 0, flashSide = 0, scraping = 0, creditFlash = 0;
+  var shake = 0, flash = 0, flashSide = 0, scraping = 0;
   var nextMilestone = 500, beatBest = false, deathTimer = 0, lastRunDist = 0;
   // A gate on the road at the distance your best run reached. Passing it is
   // the moment a run stops being ordinary, so it gets a marker you can see
@@ -1350,7 +1350,7 @@
     distance = 0; score = 0; elapsed = 0;
     combo = 0; bestCombo = 0; comboTimer = 0; mult = 1;
     nearMisses = 0; boost = 0; overdrive = 0;
-    obstacles = []; pickups = []; particles = []; popups = [];
+    obstacles = []; pickups = []; particles = []; popups = []; bursts = [];
     waveT = 99; lastOpenLane = 1;
     shake = 0; flash = 0; scraping = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
@@ -1949,6 +1949,12 @@
     }
   }
 
+  // An expanding ring where the coin was, instead of tinting the whole screen.
+  // Coins arrive in trails of three to five, so anything full-screen strobes.
+  function burst(x, y, color) {
+    bursts.push({ x: x, y: y, life: 0.34, max: 0.34, color: color });
+  }
+
   function collect(p) {
     var gained = Math.max(1, Math.round(p.value * car.cash));
     creditsRun += gained;
@@ -1957,7 +1963,17 @@
     score += gained * 5;
     popup('+' + gained, p.lat >= px ? 1 : -1, '#2ee6d6', 14);
     sfxCredit(p.value);
-    creditFlash = 0.4;
+    var bx = xAt(p.lat, PLAYER_T), by = playerY - playerHalfPx * 1.2;
+    burst(bx, by, p.value > 1 ? '255,214,90' : '255,192,46');
+    for (var sp = 0; sp < (p.value > 1 ? 7 : 4); sp++) {
+      particles.push({
+        x: bx, y: by,
+        vx: (Math.random() - 0.5) * 190, vy: -50 - Math.random() * 150,
+        life: 0.32, maxLife: 0.32,
+        color: Math.random() > 0.5 ? '#ffd23d' : '#fff3c4',
+        size: 1 + Math.random() * 2
+      });
+    }
     checkGoals();
     updateHud();
   }
@@ -2322,7 +2338,10 @@
   function stepEffects(dt) {
     if (shake > 0.2) shake *= Math.pow(0.02, dt); else shake = 0;
     if (flash > 0) flash = Math.max(0, flash - dt * 2.2);
-    if (creditFlash > 0) creditFlash = Math.max(0, creditFlash - dt * 2.6);
+    for (var bi = bursts.length - 1; bi >= 0; bi--) {
+      bursts[bi].life -= dt;
+      if (bursts[bi].life <= 0) bursts.splice(bi, 1);
+    }
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -2532,6 +2551,20 @@
     // ---- player ----
     if (state !== 'over') drawPlayer();
 
+    // ---- pickup bursts ----
+    for (var bri = 0; bri < bursts.length; bri++) {
+      var bu = bursts[bri];
+      var k = 1 - bu.life / bu.max;                    // 0 at spawn, 1 at end
+      var rr = playerHalfPx * (0.5 + k * 1.7);
+      ctx.globalAlpha = (1 - k) * (1 - k) * 0.85;
+      ctx.strokeStyle = 'rgba(' + bu.color + ',1)';
+      ctx.lineWidth = Math.max(1, playerHalfPx * 0.13 * (1 - k));
+      ctx.beginPath();
+      ctx.arc(bu.x, bu.y, rr, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+
     // ---- particles ----
     for (var qi = 0; qi < particles.length; qi++) {
       var p = particles[qi];
@@ -2561,21 +2594,23 @@
     // ---- near-miss side flash ----
     if (flash > 0.01) {
       var fg = ctx.createLinearGradient(flashSide > 0 ? W : 0, 0, flashSide > 0 ? W * 0.55 : W * 0.45, 0);
-      fg.addColorStop(0, 'rgba(255,179,64,' + (flash * 0.3) + ')');
+      fg.addColorStop(0, 'rgba(255,192,46,' + (flash * 0.17) + ')');
       fg.addColorStop(1, 'rgba(255,179,64,0)');
       ctx.fillStyle = fg;
       ctx.fillRect(0, 0, W, H);
     }
 
-    // ---- credit pickup flash ----
-    if (creditFlash > 0.01) {
-      ctx.fillStyle = 'rgba(77,226,194,' + (creditFlash * 0.09) + ')';
-      ctx.fillRect(0, 0, W, H);
-    }
-
-    // ---- overdrive tint ----
+    // ---- overdrive: a steady glow at the edges ----
+    // This used to be a full-screen tint oscillating at about 2.2 Hz for five
+    // seconds. A constant edge vignette reads just as "boosted" without
+    // pulsing the whole screen's brightness.
     if (overdrive > 0) {
-      ctx.fillStyle = 'rgba(77,226,194,' + (0.05 + Math.sin(elapsed * 14) * 0.02) + ')';
+      var fade = Math.min(1, overdrive / 0.6);
+      var og = ctx.createRadialGradient(W / 2, H * 0.55, Math.min(W, H) * 0.3,
+                                        W / 2, H * 0.55, Math.max(W, H) * 0.72);
+      og.addColorStop(0, 'rgba(46,230,214,0)');
+      og.addColorStop(1, 'rgba(46,230,214,' + (0.20 * fade) + ')');
+      ctx.fillStyle = og;
       ctx.fillRect(0, 0, W, H);
     }
 
