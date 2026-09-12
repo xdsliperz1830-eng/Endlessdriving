@@ -681,6 +681,16 @@
   // up with less overdrive than before.
   var OD_AUTOFIRE = 8.0;
   var MAX_MULT = 8;
+  // The multiplier caps at x8, which a median run reaches -- and the counter
+  // then kept climbing and paying nothing (the best run measured hit combo
+  // 338). Past the cap every further run of grazes pays a growing bonus, so
+  // the scoring system keeps rewarding a chain that keeps going.
+  var STREAK_STEP = 8;
+  var STREAK_BASE = 250;
+  // Each award pays more than the last, but the escalation stops: left to grow
+  // linearly, a 150-second chain banked 166,500 bonus points against a median
+  // run's 4,500, which turns the scoreboard into a pure chain-length contest.
+  var STREAK_MAX = 6;
   var STEER_RATE = 2.3;                // road-space units per second at full lock
   // The player is fenced inside the tarmac. Leaving it was a free escape:
   // parked on the shoulder you sat 0.48 from the outermost lane centre while a
@@ -1196,6 +1206,11 @@
   function sfxRecord() { tone(523, 0.13, 0.22); setTimeout(function () { tone(659, 0.13, 0.22); }, 100); setTimeout(function () { tone(880, 0.3, 0.24); }, 200); }
   function sfxCrash() { noise(0.7, 220, 0.5, 0.55, 'lowpass'); tone(90, 0.5, 0.30, 'square', 40); }
   function sfxCredit(v) { tone(v > 1 ? 1046 : 784, 0.11, 0.17, 'sine', v > 1 ? 1568 : 1175, slotAt('credit', 0.055)); }
+  function sfxStreak(n) {
+    var base = 523 * Math.pow(2, Math.min(n, 9) / 12);
+    tone(base, 0.10, 0.20, 'triangle');
+    tone(base * 1.5, 0.22, 0.18, 'triangle', 0, slotAt('streak', 0.09));
+  }
   function sfxGoal() {
     tone(523, 0.12, 0.20); setTimeout(function () { tone(784, 0.12, 0.20); }, 90);
     setTimeout(function () { tone(1046, 0.26, 0.22); }, 180);
@@ -1406,7 +1421,7 @@
   var steer = 0;
   var speed = BASE_SPEED, targetSpeed = BASE_SPEED, topSpeed = 0;
   var distance = 0, score = 0, elapsed = 0;
-  var combo = 0, bestCombo = 0, comboTimer = 0, mult = 1;
+  var combo = 0, bestCombo = 0, comboTimer = 0, mult = 1, streakLevel = 0;
   var nearMisses = 0;
   var boost = 0, overdrive = 0;
   var obstacles = [], pickups = [], particles = [], popups = [];
@@ -1435,7 +1450,7 @@
     px = 0; pvx = 0; steer = 0; wheelAngle = 0;
     speed = BASE_SPEED; targetSpeed = BASE_SPEED; topSpeed = 0;
     distance = 0; score = 0; elapsed = 0;
-    combo = 0; bestCombo = 0; comboTimer = 0; mult = 1;
+    combo = 0; bestCombo = 0; comboTimer = 0; mult = 1; streakLevel = 0;
     nearMisses = 0; boost = 0; overdrive = 0;
     obstacles = []; pickups = []; particles = []; popups = [];
     waveT = 99; lastOpenLane = 1;
@@ -1813,7 +1828,7 @@
     particles = [];
     px = 0; pvx = 0; steer = 0; wheelAngle = 0;
     applyWheel();
-    combo = 0; mult = 1; updateCombo();
+    combo = 0; mult = 1; streakLevel = 0; updateCombo();
     // Overdrive stops ticking down while you are dying, so carrying its
     // remainder across a continue handed back a shrunken hitbox at random.
     overdrive = 0; boost = 0; odHold = 0;
@@ -2214,6 +2229,17 @@
     popup('+' + pts, o.lat >= px ? 1 : -1, '#ffc02e', 15 + Math.min(mult, 6));
     sfxNearMiss();
     sfxCombo(combo);
+    // combo 14 is where the multiplier tops out; everything past that is the
+    // streak, and each further STREAK_STEP of it pays more than the last.
+    var over = combo - (MAX_MULT - 1) * 2;
+    if (over > 0 && over % STREAK_STEP === 0) {
+      streakLevel++;
+      var sb = STREAK_BASE * Math.min(streakLevel, STREAK_MAX);
+      score += sb;
+      popup('STREAK +' + sb.toLocaleString(), o.lat >= px ? -1 : 1, '#2ee6d6', 17);
+      sfxStreak(streakLevel);
+      buzz(20);
+    }
     // Web Animations rather than a class restart: no forced reflow, and no
     // re-rasterising of a blurred backdrop.
     if (comboChip.animate) {
@@ -2434,7 +2460,7 @@
     // --- combo decay ---
     if (combo > 0) {
       comboTimer -= dt;
-      if (comboTimer <= 0) { combo = 0; mult = 1; updateCombo(); }
+      if (comboTimer <= 0) { combo = 0; mult = 1; streakLevel = 0; updateCombo(); }
     }
     if (overdrive > 0) {
       overdrive -= dt;
