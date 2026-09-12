@@ -75,7 +75,6 @@
     opacity: 0;
     transform: scale(0.8);
     transition: opacity 0.18s ease, transform 0.18s ease;
-    backdrop-filter: blur(6px);
     margin-top: 2px;
   }
   #comboChip.on { opacity: 1; transform: scale(1); }
@@ -346,7 +345,7 @@
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 118px);
     left: 18px;
-    background: var(--ui-bg);
+    background: rgba(7, 11, 22, 0.82);
     border: 1px solid rgba(77,226,194,0.25);
     border-radius: 999px;
     padding: 4px 12px;
@@ -354,11 +353,9 @@
     font-weight: 700;
     color: var(--mint);
     font-variant-numeric: tabular-nums;
-    backdrop-filter: blur(6px);
     pointer-events: none;
     z-index: 5;
   }
-  #creditsHud.bump { animation: chipPop 0.3s ease; }
 
   .menu-row { display: flex; gap: 10px; margin-top: 16px; }
   button.ghost-btn {
@@ -660,6 +657,7 @@
   var SPEED_RAMP = 300;                // added over the course of a long run
   var DEPTH_RATE = 0.40;               // track units per second at base speed
   var COMBO_WINDOW = 3.6;
+  var ABSORB_T = 0.17;                 // how long a collected coin takes to shrink away
   var OVERDRIVE_TIME = 5.0;
   var MAX_MULT = 8;
   var STEER_RATE = 2.3;                // road-space units per second at full lock
@@ -1322,7 +1320,7 @@
   var combo = 0, bestCombo = 0, comboTimer = 0, mult = 1;
   var nearMisses = 0;
   var boost = 0, overdrive = 0;
-  var obstacles = [], pickups = [], particles = [], popups = [], bursts = [];
+  var obstacles = [], pickups = [], particles = [], popups = [];
   var dashPhase = 0, waveT = 99, lastOpenLane = 1;
   var shake = 0, flash = 0, flashSide = 0, scraping = 0;
   var nextMilestone = 500, beatBest = false, deathTimer = 0, lastRunDist = 0;
@@ -1350,7 +1348,7 @@
     distance = 0; score = 0; elapsed = 0;
     combo = 0; bestCombo = 0; comboTimer = 0; mult = 1;
     nearMisses = 0; boost = 0; overdrive = 0;
-    obstacles = []; pickups = []; particles = []; popups = []; bursts = [];
+    obstacles = []; pickups = []; particles = []; popups = [];
     waveT = 99; lastOpenLane = 1;
     shake = 0; flash = 0; scraping = 0;
     nextMilestone = 500; beatBest = false; deathTimer = 0;
@@ -1944,15 +1942,10 @@
         lat: LANE_LAT[lane],
         t: -0.06 * i,
         value: value,
-        taken: false
+        taken: false,
+        absorb: 0
       });
     }
-  }
-
-  // An expanding ring where the coin was, instead of tinting the whole screen.
-  // Coins arrive in trails of three to five, so anything full-screen strobes.
-  function burst(x, y, color) {
-    bursts.push({ x: x, y: y, life: 0.34, max: 0.34, color: color });
   }
 
   function collect(p) {
@@ -1963,17 +1956,9 @@
     score += gained * 5;
     popup('+' + gained, p.lat >= px ? 1 : -1, '#2ee6d6', 14);
     sfxCredit(p.value);
-    var bx = xAt(p.lat, PLAYER_T), by = playerY - playerHalfPx * 1.2;
-    burst(bx, by, p.value > 1 ? '255,214,90' : '255,192,46');
-    for (var sp = 0; sp < (p.value > 1 ? 7 : 4); sp++) {
-      particles.push({
-        x: bx, y: by,
-        vx: (Math.random() - 0.5) * 190, vy: -50 - Math.random() * 150,
-        life: 0.32, maxLife: 0.32,
-        color: Math.random() > 0.5 ? '#ffd23d' : '#fff3c4',
-        size: 1 + Math.random() * 2
-      });
-    }
+    // No burst, no sparks, no tint. The coin shrinking into the car, the "+N"
+    // beside it, the sound and the counter ticking up are the whole feedback —
+    // nothing here changes the brightness of anything you are looking through.
     checkGoals();
     updateHud();
   }
@@ -2056,9 +2041,13 @@
     popup('+' + pts, o.lat >= px ? 1 : -1, '#ffc02e', 15 + Math.min(mult, 6));
     sfxNearMiss();
     sfxCombo(combo);
-    comboChip.classList.remove('pop');
-    void comboChip.offsetWidth;
-    comboChip.classList.add('pop');
+    // Web Animations rather than a class restart: no forced reflow, and no
+    // re-rasterising of a blurred backdrop.
+    if (comboChip.animate) {
+      comboChip.animate(
+        [{ transform: 'scale(1)' }, { transform: 'scale(1.18)' }, { transform: 'scale(1)' }],
+        { duration: 260, easing: 'ease' });
+    }
     updateCombo();
     if (boost >= 1 && overdrive <= 0) startOverdrive();
   }
@@ -2091,8 +2080,10 @@
     banner.textContent = b[0];
     banner.style.color = b[1];
     banner.classList.remove('show');
-    void banner.offsetWidth;
-    banner.classList.add('show');
+    // two frames instead of a synchronous layout flush
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { banner.classList.add('show'); });
+    });
     bannerTimer = setTimeout(drainBanner, 1150);
   }
 
@@ -2122,9 +2113,6 @@
     updateDailyHud();
     if (creditsVal.textContent !== String(save.credits)) {
       creditsVal.textContent = save.credits;
-      creditsHud.classList.remove('bump');
-      void creditsHud.offsetWidth;
-      creditsHud.classList.add('bump');
     }
   }
 
@@ -2304,9 +2292,16 @@
       var pPrev = pk.t;
       pk.t += rate * dt;
       if (pk.t > 0.95) { pickups.splice(k, 1); continue; }
+      if (pk.absorb > 0) {
+        pk.absorb -= dt;
+        if (pk.absorb <= 0) { pickups.splice(k, 1); continue; }
+      }
       if (!pk.taken && pPrev < PLAYER_T && pk.t >= PLAYER_T) {
         pk.taken = true;
-        if (Math.abs(pk.lat - px) < grabLat) collect(pk);
+        if (Math.abs(pk.lat - px) < grabLat) {
+          collect(pk);
+          pk.absorb = ABSORB_T;
+        }
       }
     }
 
@@ -2338,10 +2333,7 @@
   function stepEffects(dt) {
     if (shake > 0.2) shake *= Math.pow(0.02, dt); else shake = 0;
     if (flash > 0) flash = Math.max(0, flash - dt * 2.2);
-    for (var bi = bursts.length - 1; bi >= 0; bi--) {
-      bursts[bi].life -= dt;
-      if (bursts[bi].life <= 0) bursts.splice(bi, 1);
-    }
+
     for (var i = particles.length - 1; i >= 0; i--) {
       var p = particles[i];
       p.x += p.vx * dt; p.y += p.vy * dt;
@@ -2544,26 +2536,12 @@
     // ---- credits ----
     for (var ci = 0; ci < pickups.length; ci++) {
       var pk = pickups[ci];
-      if (pk.taken || pk.t < 0.005) continue;
+      if (pk.t < 0.005) continue;
       drawCredit(pk);
     }
 
     // ---- player ----
     if (state !== 'over') drawPlayer();
-
-    // ---- pickup bursts ----
-    for (var bri = 0; bri < bursts.length; bri++) {
-      var bu = bursts[bri];
-      var k = 1 - bu.life / bu.max;                    // 0 at spawn, 1 at end
-      var rr = playerHalfPx * (0.5 + k * 1.7);
-      ctx.globalAlpha = (1 - k) * (1 - k) * 0.85;
-      ctx.strokeStyle = 'rgba(' + bu.color + ',1)';
-      ctx.lineWidth = Math.max(1, playerHalfPx * 0.13 * (1 - k));
-      ctx.beginPath();
-      ctx.arc(bu.x, bu.y, rr, 0, Math.PI * 2);
-      ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
 
     // ---- particles ----
     for (var qi = 0; qi < particles.length; qi++) {
@@ -2858,15 +2836,27 @@
   function drawCredit(p) {
     var base = yAt(p.t);
     if (base < horizonY - 4) return;
+    // Collected: shrink and fade into the car. Missed: sweep past and fade out
+    // with distance, exactly like the traffic does.
+    var a = 1, shrink = 1;
+    if (p.absorb > 0) {
+      var k = 1 - p.absorb / ABSORB_T;      // 0 at pickup, 1 when gone
+      a = (1 - k) * (1 - k);
+      shrink = 1 - k * 0.75;
+    } else if (p.taken) {
+      a = passFade(p.t);
+    }
+    if (a <= 0.01) return;
     var s = halfAt(p.t);
     var hiVal = p.value > 1;
-    var r = s * (hiVal ? 0.105 : 0.075);
+    var r = s * (hiVal ? 0.105 : 0.075) * shrink;
     var bob = Math.sin(elapsed * 5 + p.t * 22) * r * 0.5;
     var y = base - r * 2.6 + bob;
     var hi = hiVal;
     var spin = 0.45 + Math.abs(Math.cos(elapsed * 2.6 + p.t * 10)) * 0.55;
 
     ctx.save();
+    ctx.globalAlpha = a;
     // pool of light on the tarmac
     ctx.fillStyle = hi ? 'rgba(255,214,90,0.22)' : 'rgba(255,192,46,0.18)';
     ctx.beginPath();
