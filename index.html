@@ -1026,6 +1026,12 @@
   // ------------------------------------------------------------- audio
   // Everything is synthesised — the game stays a single file with no assets.
   var actx = null, noiseBuf = null, master = null;
+  var engineBus = null, sfxBus = null;
+
+  // One place for the mix. The engine is the thing that needs holding back:
+  // it is a pair of sustained sawtooths, so it carries far more energy than
+  // the music's transient notes even at a similar peak gain.
+  var MIX = { music: 0.95, sfx: 0.85, engine: 0.5 };
   var eng = null;
 
   function audioInit() {
@@ -1036,7 +1042,20 @@
 
     master = actx.createGain();
     master.gain.value = save.muted ? 0 : 1;
-    master.connect(actx.destination);
+    // A gentle limiter on the way out, so a crash landing on top of the music
+    // and the engine cannot clip — and so loud effects duck the bed a little,
+    // which is what makes them read as loud.
+    var comp = actx.createDynamicsCompressor();
+    comp.threshold.value = -12;
+    comp.knee.value = 8;
+    comp.ratio.value = 4;
+    comp.attack.value = 0.005;
+    comp.release.value = 0.18;
+    master.connect(comp);
+    comp.connect(actx.destination);
+
+    engineBus = actx.createGain(); engineBus.gain.value = MIX.engine; engineBus.connect(master);
+    sfxBus    = actx.createGain(); sfxBus.gain.value    = MIX.sfx;    sfxBus.connect(master);
 
     var len = Math.floor(actx.sampleRate * 0.7);
     noiseBuf = actx.createBuffer(1, len, actx.sampleRate);
@@ -1048,7 +1067,7 @@
     var f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600;
     var o1 = actx.createOscillator(); o1.type = 'sawtooth'; o1.frequency.value = 55;
     var o2 = actx.createOscillator(); o2.type = 'sawtooth'; o2.frequency.value = 55; o2.detune.value = 14;
-    o1.connect(f); o2.connect(f); f.connect(g); g.connect(master);
+    o1.connect(f); o2.connect(f); f.connect(g); g.connect(engineBus);
     o1.start(); o2.start();
     eng = { g: g, f: f, o1: o1, o2: o2 };
   }
@@ -1061,7 +1080,7 @@
   function engineLevel(level, speedNorm) {
     if (!eng || !actx) return;
     var now = actx.currentTime;
-    eng.g.gain.setTargetAtTime(level * 0.055, now, 0.12);
+    eng.g.gain.setTargetAtTime(level * 0.030, now, 0.12);
     eng.o1.frequency.setTargetAtTime(48 + speedNorm * 74, now, 0.1);
     eng.o2.frequency.setTargetAtTime(48 + speedNorm * 74, now, 0.1);
     eng.f.frequency.setTargetAtTime(420 + speedNorm * 1500, now, 0.15);
@@ -1076,7 +1095,7 @@
     var now = actx.currentTime;
     g.gain.setValueAtTime(vol, now);
     g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    src.connect(f); f.connect(g); g.connect(master);
+    src.connect(f); f.connect(g); g.connect(sfxBus);
     src.start(now); src.stop(now + dur + 0.02);
     return f;
   }
@@ -1091,25 +1110,25 @@
     g.gain.setValueAtTime(0.0001, now);
     g.gain.exponentialRampToValueAtTime(vol, now + 0.012);
     g.gain.exponentialRampToValueAtTime(0.0001, now + dur);
-    o.connect(g); g.connect(master);
+    o.connect(g); g.connect(sfxBus);
     o.start(now); o.stop(now + dur + 0.02);
   }
 
   function sfxNearMiss() {
-    var f = noise(0.26, 500, 1.2, 0.22);
+    var f = noise(0.26, 500, 1.2, 0.80);
     if (f && actx) f.frequency.exponentialRampToValueAtTime(2600, actx.currentTime + 0.24);
   }
-  function sfxCombo(n) { tone(392 * Math.pow(2, Math.min(n, 16) / 12), 0.16, 0.13, 'triangle'); }
-  function sfxOverdrive() { tone(180, 0.5, 0.16, 'sawtooth', 900); noise(0.5, 900, 0.7, 0.1); }
-  function sfxMilestone() { tone(660, 0.14, 0.12); setTimeout(function () { tone(880, 0.22, 0.12); }, 110); }
-  function sfxRecord() { tone(523, 0.13, 0.13); setTimeout(function () { tone(659, 0.13, 0.13); }, 100); setTimeout(function () { tone(880, 0.3, 0.14); }, 200); }
-  function sfxCrash() { noise(0.7, 220, 0.5, 0.35, 'lowpass'); tone(90, 0.5, 0.22, 'square', 40); }
-  function sfxCredit(v) { tone(v > 1 ? 1046 : 784, 0.11, 0.11, 'sine', v > 1 ? 1568 : 1175); }
+  function sfxCombo(n) { tone(392 * Math.pow(2, Math.min(n, 16) / 12), 0.16, 0.19, 'triangle'); }
+  function sfxOverdrive() { tone(180, 0.5, 0.24, 'sawtooth', 900); noise(0.5, 900, 0.7, 0.15); }
+  function sfxMilestone() { tone(660, 0.14, 0.19); setTimeout(function () { tone(880, 0.22, 0.19); }, 110); }
+  function sfxRecord() { tone(523, 0.13, 0.22); setTimeout(function () { tone(659, 0.13, 0.22); }, 100); setTimeout(function () { tone(880, 0.3, 0.24); }, 200); }
+  function sfxCrash() { noise(0.7, 220, 0.5, 0.55, 'lowpass'); tone(90, 0.5, 0.30, 'square', 40); }
+  function sfxCredit(v) { tone(v > 1 ? 1046 : 784, 0.11, 0.17, 'sine', v > 1 ? 1568 : 1175); }
   function sfxGoal() {
-    tone(523, 0.12, 0.12); setTimeout(function () { tone(784, 0.12, 0.12); }, 90);
-    setTimeout(function () { tone(1046, 0.26, 0.13); }, 180);
+    tone(523, 0.12, 0.20); setTimeout(function () { tone(784, 0.12, 0.20); }, 90);
+    setTimeout(function () { tone(1046, 0.26, 0.22); }, 180);
   }
-  function sfxRumble() { noise(0.12, 160, 0.8, 0.09, 'lowpass'); }
+  function sfxRumble() { noise(0.12, 160, 0.8, 0.40, 'lowpass'); }
 
   // ------------------------------------------------------------- music
   // A synthesised two-bar bass-and-arp loop. It is scheduled a beat ahead on
@@ -1184,11 +1203,11 @@
 
   function kick(at) {
     // a sine dropping in pitch is the whole trick
-    synth(120, 0.16, 'sine', 0.34, at, 400, 42);
+    synth(120, 0.16, 'sine', 0.16, at, 400, 42);
   }
   function snare(at) {
-    drumNoise(at, 0.13, 1400, 0.15);
-    synth(165, 0.09, 'triangle', 0.07, at, 900);   // E, so it sits in the key
+    drumNoise(at, 0.13, 1400, 0.09);
+    synth(165, 0.09, 'triangle', 0.05, at, 900);   // E, so it sits in the key
   }
 
   function musicTick() {
@@ -1211,7 +1230,7 @@
       // bass
       if (BASS[s] !== null) {
         synth(noteHz(PROG[bar] + BASS[s]), st * 1.7, 'sawtooth',
-              0.10, at, 320 + lift * 900);
+              0.085, at, 320 + lift * 900);
       }
 
       // pad: a quiet root-and-fifth bed, once a bar
@@ -1224,7 +1243,7 @@
       if (s % 2 === 0) {
         var n = LEAD[bar * 8 + (s >> 1)];
         if (n !== null) {
-          var vol = 0.032 + lift * 0.038 + (hot ? 0.02 : 0);
+          var vol = 0.045 + lift * 0.035 + (hot ? 0.02 : 0);
           synth(noteHz(n + 12), st * 1.9, 'square', vol, at, 2200 + lift * 2200);
           // overdrive doubles the hook an octave up
           if (hot) synth(noteHz(n + 24), st * 1.5, 'square', vol * 0.5, at, 5000);
@@ -1237,11 +1256,11 @@
       if (isHat(s)) {
         var open = hot && s % 8 === 6;
         drumNoise(at, open ? 0.16 : 0.028, 7000,
-                  (s % 4 === 0 ? 0.05 : 0.032) * (0.6 + lift * 0.5));
+                  (s % 4 === 0 ? 0.042 : 0.026) * (0.6 + lift * 0.5));
       }
       // a fill closes the last bar so the loop resolves instead of just repeating
       if (bar === BARS - 1 && s >= 14) {
-        drumNoise(at, 0.07, 1200, 0.12);
+        drumNoise(at, 0.07, 1200, 0.09);
       }
 
       music.next += st;
@@ -1259,7 +1278,7 @@
     if (on) {
       if (!music.bus) {
         music.bus = actx.createGain();
-        music.bus.gain.value = 0.55;
+        music.bus.gain.value = MIX.music;
         music.bus.connect(master);
       }
       music.next = actx.currentTime + 0.08;
