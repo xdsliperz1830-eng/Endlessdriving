@@ -490,6 +490,13 @@
   #dailyHud.done { color: var(--mint); }
 
   #earned { font-size: 12px; color: var(--mint); margin: 0 0 12px; min-height: 0; }
+  #nextUp {
+    font-size: 12px; color: var(--dim); margin: 0 0 14px;
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+  }
+  #nextUp b { color: var(--amber); font-weight: 700; }
+  #nextUp .track { flex: 0 1 120px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; }
+  #nextUp .track i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
   #earned b { color: var(--amber); }
 
   .hidden { display: none !important; }
@@ -593,6 +600,7 @@
     </div>
     <div id="endNote"></div>
     <div id="earned"></div>
+    <div id="nextUp"></div>
     <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE &#9670; 400</button>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
     <div class="menu-row">
@@ -634,7 +642,7 @@
   var scoreVal = $('scoreVal'), speedVal = $('speedVal'), bestVal = $('bestVal');
   var distVal = $('distVal'), bestDistVal = $('bestDistVal');
   var comboChip = $('comboChip'), comboMult = $('comboMult'), comboCount = $('comboCount');
-  var boostWrap = $('boostWrap'), boostFill = $('boostFill');
+  var boostWrap = $('boostWrap'), boostFill = $('boostFill'), nextUp = $('nextUp');
   var banner = $('banner'), muteBtn = $('muteBtn');
   var startOverlay = $('startOverlay'), endOverlay = $('endOverlay');
   var startBtn = $('startBtn'), retryBtn = $('retryBtn');
@@ -1945,6 +1953,8 @@
     }
     earned.innerHTML = lines.join('<br>');
 
+    renderNextUp();
+
     var cost = continueCost();
     var offer = canContinue();
     continueBtn.classList.toggle('hidden', !offer);
@@ -1957,6 +1967,32 @@
 
     endOverlay.classList.remove('hidden');
     updateHud();
+  }
+
+  // The cheapest thing still locked, named on the end card. Credits were being
+  // banked with nothing on screen to bank them towards, which is most of the
+  // reason to start another run.
+  function renderNextUp() {
+    var target = null;
+    for (var i = 0; i < CARS.length; i++) {
+      var c = CARS[i];
+      if (owns(c.id)) continue;
+      if (!target || c.cost < target.cost) target = c;
+    }
+    if (!target) { nextUp.innerHTML = ''; return; }
+    if (target.req && !goalDone(target.req)) {
+      nextUp.innerHTML = 'Next: <b>' + target.name + '</b> \u2014 finish ' + goalName(target.req);
+      return;
+    }
+    var short = target.cost - save.credits;
+    if (short <= 0) {
+      nextUp.innerHTML = '<b>' + target.name + '</b> is yours \u2014 it is waiting in the garage';
+      return;
+    }
+    var pct = Math.max(2, Math.min(100, save.credits / target.cost * 100));
+    nextUp.innerHTML = 'Next: <b>' + target.name + '</b>' +
+      '<span class="track"><i style="width:' + pct.toFixed(0) + '%"></i></span>' +
+      '\u25c6 ' + short.toLocaleString() + ' to go';
   }
 
   // ------------------------------------------------------------- spawning
