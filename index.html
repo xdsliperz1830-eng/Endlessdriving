@@ -342,9 +342,13 @@
   }
   button.play-btn:active { transform: scale(0.96); }
   button.continue-btn {
-    background: var(--mint);
-    color: #05221e;
-    box-shadow: 0 8px 24px rgba(46,230,214,0.3);
+    /* Bought with credits, so it wears the coin. Outlined rather than filled:
+       solid gold made it and the DRIVE AGAIN below it into two near-identical
+       buttons, and this one costs money while that one is free. */
+    background: transparent;
+    color: var(--credit);
+    border: 2px solid var(--amber);
+    box-shadow: 0 0 18px rgba(255,192,46,0.18);
     margin-bottom: 10px;
   }
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
@@ -529,6 +533,7 @@
     display: flex; align-items: center; gap: 8px; justify-content: center;
   }
   #nextUp b { color: var(--amber); font-weight: 700; }
+  #nextUp .amt { color: var(--credit); font-weight: 700; }
   #nextUp .track { flex: 0 1 120px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; }
   #nextUp .track i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
   #earned b { color: var(--amber); }
@@ -636,7 +641,7 @@
     <div id="endNote"></div>
     <div id="earned"></div>
     <div id="nextUp"></div>
-    <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE <i class="coin on-light"></i> 400</button>
+    <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE <i class="coin"></i> 400</button>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
     <div class="menu-row">
       <button class="ghost-btn" id="shareBtn">SHARE</button>
@@ -2058,11 +2063,12 @@
     var cost = continueCost();
     var offer = canContinue();
     continueBtn.classList.toggle('hidden', !offer);
-    if (offer) continueBtn.innerHTML = 'CONTINUE ' + COIN_DARK + ' ' + cost.toLocaleString();
+    if (offer) continueBtn.innerHTML = 'CONTINUE ' + COIN + ' ' + cost.toLocaleString();
     else if (cost > 0) {
       // Name the price even when it is out of reach, so the sink is visible.
       endNote.innerHTML = (endNote.textContent ? endNote.textContent + '<br>' : '') +
-        '<span style="color:#6b7385">Continue costs ' + COIN + ' ' + cost.toLocaleString() + '</span>';
+        '<span style="color:#6b7385">Continue costs ' + COIN +
+        ' <span style="color:var(--credit)">' + cost.toLocaleString() + '</span></span>';
     }
 
     endOverlay.classList.remove('hidden');
@@ -2092,7 +2098,7 @@
     var pct = Math.max(2, Math.min(100, save.credits / target.cost * 100));
     nextUp.innerHTML = 'Next: <b>' + target.name + '</b>' +
       '<span class="track"><i style="width:' + pct.toFixed(0) + '%"></i></span>' +
-      COIN + ' ' + short.toLocaleString() + ' to go';
+      COIN + ' <span class="amt">' + short.toLocaleString() + '</span> to go';
   }
 
   // ------------------------------------------------------------- spawning
@@ -2274,7 +2280,7 @@
     save.credits += gained;
     save.totals.credits += gained;
     score += gained * 5;
-    popup('+' + gained, p.lat >= px ? 1 : -1, '#2ee6d6', 14);
+    popup('+' + gained, p.lat >= px ? 1 : -1, '#ffe08a', 14);
     sfxCredit(p.value);
     // No burst, no sparks, no tint. The coin shrinking into the car, the "+N"
     // beside it, the sound and the counter ticking up are the whole feedback —
