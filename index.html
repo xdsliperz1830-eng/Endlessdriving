@@ -22,6 +22,10 @@
     --amber: #ffc02e;
     --coral: #ff2d46;
     --mint: #2ee6d6;          /* the cover's glowing road edge */
+    /* Credits read in the coin's own top highlight rather than the road's
+       mint. Deliberately not --amber: score is already amber, and the two
+       numbers sit a thumb apart in the HUD. */
+    --credit: #ffe08a;
     --ui-bg: rgba(7, 11, 22, 0.74);
     --text: #eef3fa;
     --dim: #93a3bd;
@@ -367,12 +371,12 @@
     top: calc(env(safe-area-inset-top, 0px) + 118px);
     left: 18px;
     background: rgba(7, 11, 22, 0.82);
-    border: 1px solid rgba(77,226,194,0.25);
+    border: 1px solid rgba(255,224,138,0.28);
     border-radius: 999px;
     padding: 4px 12px;
     font-size: 12px;
     font-weight: 700;
-    color: var(--mint);
+    color: var(--credit);
     font-variant-numeric: tabular-nums;
     pointer-events: none;
     z-index: 5;
@@ -411,7 +415,7 @@
     flex: 0 0 auto;
   }
   .panel-head h2 { margin: 0; font-size: 19px; letter-spacing: 0.02em; color: var(--text); }
-  .panel-credits { font-size: 13px; font-weight: 700; color: var(--mint); font-variant-numeric: tabular-nums; }
+  .panel-credits { font-size: 13px; font-weight: 700; color: var(--credit); font-variant-numeric: tabular-nums; }
   .panel-body { flex: 1 1 auto; overflow-y: auto; padding: 14px 14px 22px; -webkit-overflow-scrolling: touch; }
   .panel-foot { flex: 0 0 auto; padding: 12px 18px calc(16px + env(safe-area-inset-bottom, 0px)); text-align: center; }
 
@@ -472,7 +476,7 @@
   .goal-desc { font-size: 11px; color: var(--dim); margin-top: 1px; }
   .goal-bar { height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; margin-top: 6px; overflow: hidden; }
   .goal-bar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
-  .goal-reward { font-size: 12px; font-weight: 700; color: var(--mint); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .goal-reward { font-size: 12px; font-weight: 700; color: var(--credit); flex: 0 0 auto; font-variant-numeric: tabular-nums; }
 
   .daily-card {
     background: rgba(255,192,46,0.08);
@@ -487,7 +491,7 @@
   .daily-card.done .daily-head { color: var(--mint); }
   .daily-text { font-size: 13px; color: var(--text); margin: 3px 0 2px; }
   .daily-reward { font-size: 11px; font-weight: 700; color: var(--amber); }
-  .daily-card.done .daily-reward { color: var(--mint); }
+  .daily-card.done .daily-reward { color: var(--credit); }
 
   #dailyHud {
     position: absolute;
@@ -519,7 +523,7 @@
   }
   #shieldHud.hidden { display: none; }
 
-  #earned { font-size: 12px; color: var(--mint); margin: 0 0 12px; min-height: 0; }
+  #earned { font-size: 12px; color: var(--credit); margin: 0 0 12px; min-height: 0; }
   #nextUp {
     font-size: 12px; color: var(--dim); margin: 0 0 14px;
     display: flex; align-items: center; gap: 8px; justify-content: center;
@@ -882,7 +886,7 @@
     save.daily.done = true;
     save.credits += DAILY_REWARD;
     earnedThisRun.push({ name: 'Daily Challenge', reward: DAILY_REWARD });
-    showBanner('DAILY DONE  +' + DAILY_REWARD, '#ffc02e');
+    showBanner('DAILY DONE  +' + DAILY_REWARD, '#ffe08a');
     sfxGoal();
     buzz(45);
     persist();
@@ -2314,7 +2318,7 @@
         save.goals[g.id] = goalLevel(g.id) + 1;
         save.credits += reward;
         earnedThisRun.push({ name: g.name, reward: reward });
-        showBanner(g.name.toUpperCase() + '  +' + reward, '#2ee6d6');
+        showBanner(g.name.toUpperCase() + '  +' + reward, '#ffe08a');
         sfxGoal();
         buzz(35);
         awarded = true;
