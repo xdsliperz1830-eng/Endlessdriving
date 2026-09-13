@@ -346,6 +346,22 @@
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
 
   /* ---------------- Credits / garage / goals ---------------- */
+  /* The credits icon is the pickup's own gradient and hole proportions, so the
+     number in the HUD reads as the thing you just drove over. Masked rather
+     than a glyph: no system font has a ring with a hole this size, and where
+     mask is unsupported it degrades to a filled gold disc, which is fine. */
+  i.coin {
+    display: inline-block;
+    width: 0.86em; height: 0.86em;
+    border-radius: 50%;
+    vertical-align: -0.10em;
+    background: linear-gradient(180deg, #ffe08a 0%, #ffc02e 52%, #e59400 100%);
+    -webkit-mask: radial-gradient(circle, transparent 43%, #000 44%);
+            mask: radial-gradient(circle, transparent 43%, #000 44%);
+  }
+  /* Gold on the amber buy button or the mint continue button is invisible. */
+  i.coin.on-light { background: linear-gradient(180deg, #4a3a10 0%, #1a1206 60%, #000 100%); }
+
   #creditsHud {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 118px);
@@ -541,7 +557,7 @@
 
   <div id="boostWrap"><div id="boostFill"></div></div>
   <div id="speedVal">0 km/h</div>
-  <div id="creditsHud">&#9670; <span id="creditsVal">0</span></div>
+  <div id="creditsHud"><i class="coin"></i> <span id="creditsVal">0</span></div>
   <div id="dailyHud"></div>
   <div id="shieldHud" class="hidden">&#10023; SHIELD</div>
   <button id="pauseBtn" aria-label="Pause">&#10074;&#10074;</button>
@@ -573,7 +589,7 @@
     <div class="daily-card" id="dailyCard">
       <div class="daily-head">DAILY CHALLENGE</div>
       <div class="daily-text" id="dailyText">&mdash;</div>
-      <div class="daily-reward" id="dailyReward">&#9670; 500</div>
+      <div class="daily-reward" id="dailyReward"><i class="coin"></i> 500</div>
     </div>
     <p class="tips">
       <b>Squeeze past</b> a car for bonus points<br>
@@ -616,7 +632,7 @@
     <div id="endNote"></div>
     <div id="earned"></div>
     <div id="nextUp"></div>
-    <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE &#9670; 400</button>
+    <button class="play-btn continue-btn hidden" id="continueBtn">CONTINUE <i class="coin on-light"></i> 400</button>
     <button class="play-btn" id="retryBtn">DRIVE AGAIN</button>
     <div class="menu-row">
       <button class="ghost-btn" id="shareBtn">SHARE</button>
@@ -629,7 +645,7 @@
   <div class="panel hidden" id="garagePanel">
     <div class="panel-head">
       <h2>GARAGE</h2>
-      <div class="panel-credits">&#9670; <span id="garageCredits">0</span></div>
+      <div class="panel-credits"><i class="coin"></i> <span id="garageCredits">0</span></div>
     </div>
     <div class="panel-body"><div class="car-grid" id="carGrid"></div></div>
     <div class="panel-foot"><button class="play-btn" id="garageClose">BACK</button></div>
@@ -638,7 +654,7 @@
   <div class="panel hidden" id="goalsPanel">
     <div class="panel-head">
       <h2>GOALS</h2>
-      <div class="panel-credits">&#9670; <span id="goalsCredits">0</span></div>
+      <div class="panel-credits"><i class="coin"></i> <span id="goalsCredits">0</span></div>
     </div>
     <div class="panel-body"><div id="goalList"></div></div>
     <div class="panel-foot"><button class="play-btn" id="goalsClose">BACK</button></div>
@@ -1624,6 +1640,11 @@
   continueBtn.addEventListener('click', function (e) { e.stopPropagation(); doContinue(); });
 
   // ------------------------------------------------------------- menus
+  // One markup string for the coin, so the thirteen places it appears can
+  // never drift apart. `on-light` is for the two buttons with a bright fill.
+  var COIN = '<i class="coin"></i>';
+  var COIN_DARK = '<i class="coin on-light"></i>';
+
   var thumbCache = {};
   function carThumb(c) {
     if (thumbCache[c.id]) return thumbCache[c.id];
@@ -1673,8 +1694,8 @@
       if (active)        { action = 'DRIVING'; cls = 'active'; }
       else if (have)     { action = 'SELECT';  cls = 'owned'; }
       else if (needGoal) { action = 'GOAL: ' + goalName(c.req); cls = 'need'; }
-      else if (save.credits >= c.cost) { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'buy'; }
-      else               { action = '\u25c6 ' + c.cost.toLocaleString(); cls = 'need'; }
+      else if (save.credits >= c.cost) { action = COIN_DARK + ' ' + c.cost.toLocaleString(); cls = 'buy'; }
+      else               { action = COIN + ' ' + c.cost.toLocaleString(); cls = 'need'; }
       return '<div class="car-card' + (active ? ' selected' : '') + (locked ? ' locked' : '') +
              '" data-car="' + c.id + '">' + carThumb(c) +
              '<div class="car-name">' + c.name + '</div>' +
@@ -1712,7 +1733,7 @@
         '<div class="goal-tick">\u2713</div><div class="goal-main">' +
         '<div class="goal-name">' + g.name + tierLabel + '</div>' +
         '<div class="goal-desc">' + (maxed ? 'Every tier cleared' : goalText(g)) + '</div>' + bar +
-        '</div><div class="goal-reward">' + (maxed ? '\u2014' : '\u25c6 ' + goalReward(g).toLocaleString()) + '</div></div>';
+        '</div><div class="goal-reward">' + (maxed ? '\u2014' : COIN + ' ' + goalReward(g).toLocaleString()) + '</div></div>';
     }).join('');
   }
 
@@ -1721,7 +1742,7 @@
     var done = dailyDone();
     dailyCard.classList.toggle('done', done);
     dailyText.textContent = done ? 'Done \u2014 come back tomorrow for a new one.' : daily.text;
-    dailyReward.textContent = done ? '\u25c6 ' + DAILY_REWARD + ' claimed' : '\u25c6 ' + DAILY_REWARD;
+    dailyReward.innerHTML = done ? COIN + ' ' + DAILY_REWARD + ' claimed' : COIN + ' ' + DAILY_REWARD;
   }
 
   // A quiet progress line during a run, so the daily is not something you have
@@ -2020,7 +2041,7 @@
                    : gap.toLocaleString() + ' points off your best.');
     }
     var lines = [];
-    if (creditsRun > 0) lines.push('Collected <b>\u25c6 ' + creditsRun + '</b>');
+    if (creditsRun > 0) lines.push('Collected <b>' + COIN + ' ' + creditsRun + '</b>');
     if (earnedThisRun.length) {
       lines.push(earnedThisRun.map(function (g) {
         return g.name + ' <b>+' + g.reward.toLocaleString() + '</b>';
@@ -2033,11 +2054,11 @@
     var cost = continueCost();
     var offer = canContinue();
     continueBtn.classList.toggle('hidden', !offer);
-    if (offer) continueBtn.innerHTML = 'CONTINUE \u25c6 ' + cost.toLocaleString();
+    if (offer) continueBtn.innerHTML = 'CONTINUE ' + COIN_DARK + ' ' + cost.toLocaleString();
     else if (cost > 0) {
       // Name the price even when it is out of reach, so the sink is visible.
       endNote.innerHTML = (endNote.textContent ? endNote.textContent + '<br>' : '') +
-        '<span style="color:#6b7385">Continue costs \u25c6 ' + cost.toLocaleString() + '</span>';
+        '<span style="color:#6b7385">Continue costs ' + COIN + ' ' + cost.toLocaleString() + '</span>';
     }
 
     endOverlay.classList.remove('hidden');
@@ -2067,7 +2088,7 @@
     var pct = Math.max(2, Math.min(100, save.credits / target.cost * 100));
     nextUp.innerHTML = 'Next: <b>' + target.name + '</b>' +
       '<span class="track"><i style="width:' + pct.toFixed(0) + '%"></i></span>' +
-      '\u25c6 ' + short.toLocaleString() + ' to go';
+      COIN + ' ' + short.toLocaleString() + ' to go';
   }
 
   // ------------------------------------------------------------- spawning
