@@ -89,6 +89,7 @@
 
   /* Boost / overdrive meter */
   #boostWrap {
+    transition: height 0.18s ease;
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 84px);
     left: 50%; transform: translateX(-50%);
@@ -110,8 +111,42 @@
   /* Charged and waiting for you to spend it. Deliberately a steady state and
      not a pulse: a repeating brightness change up here is exactly the thing
      that made the old overdrive tint unpleasant to play under. */
+  #boostWrap.ready { height: 8px; }
   #boostWrap.ready #boostFill { background: var(--mint); box-shadow: 0 0 10px var(--mint); }
-  #steerHint.boost { color: var(--mint); font-weight: 700; }
+  /* The first time overdrive charges in a run, say so where the thumb is
+     rather than in a line of small grey text. The ripple is a transform on a
+     pill-sized element, not a brightness change across the screen. */
+  #odPrompt {
+    position: absolute;
+    bottom: calc(min(15vw,62px) + 56px + env(safe-area-inset-bottom, 0px));
+    left: 0; right: 0;
+    display: flex; justify-content: center;
+    pointer-events: none;
+    z-index: 7;
+  }
+  #odPrompt .label {
+    position: relative;
+    background: rgba(6, 12, 20, 0.86);
+    border: 1px solid rgba(46,230,214,0.5);
+    color: var(--mint);
+    font-size: 12px; font-weight: 700; letter-spacing: 0.09em;
+    padding: 8px 18px; border-radius: 999px;
+    box-shadow: 0 0 18px rgba(46,230,214,0.18);
+    white-space: nowrap;
+  }
+  #odPrompt.first .label { font-size: 14px; padding: 11px 24px; }
+  #odPrompt .label::after {
+    content: ''; position: absolute; inset: -2px;
+    border-radius: 999px; border: 2px solid var(--mint);
+    animation: odpulse 1.5s ease-out infinite;
+  }
+  @keyframes odpulse {
+    0%   { transform: scale(1);    opacity: 0.6; }
+    100% { transform: scale(1.32); opacity: 0; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    #odPrompt .label::after { animation: none; opacity: 0.45; }
+  }
 
   #speedVal {
     position: absolute;
@@ -575,6 +610,8 @@
 
   <div id="banner"></div>
 
+  <div id="odPrompt" class="hidden"><span class="label">TAP TO USE OVERDRIVE</span></div>
+
   <div id="wheel-zone">
     <div id="steerHint">Drag anywhere down here to steer</div>
     <div id="wheel">
@@ -678,7 +715,7 @@
   var canvas = $('game');
   var ctx = canvas.getContext('2d');
   var wheelEl = $('wheel'), wheelZone = $('wheel-zone'), wheelInner = $('wheelInner');
-  var steerHint = $('steerHint');
+  var steerHint = $('steerHint'), odPrompt = $('odPrompt');
   var scoreVal = $('scoreVal'), speedVal = $('speedVal'), bestVal = $('bestVal');
   var distVal = $('distVal'), bestDistVal = $('bestDistVal');
   var comboChip = $('comboChip'), comboMult = $('comboMult'), comboCount = $('comboCount');
@@ -1480,7 +1517,7 @@
   // the moment a run stops being ordinary, so it gets a marker you can see
   // coming rather than a number on the end card.
   var ghostDist = 0, ghostT = -1, ghostPassed = false;
-  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0, odHold = 0, shield = false;
+  var creditsRun = 0, overdrives = 0, continues = 0, invuln = 0, odHold = 0, odArms = 0, shield = false;
   // Traffic breathes rather than arriving at a constant rate: a surge packs
   // the waves closer, a breather opens the road up (and pays better).
   var mood = 'normal', moodTimer = 6, surges = 0;
@@ -1519,7 +1556,8 @@
     boostWrap.classList.remove('od');
     nextMilestone = 500; beatBest = false; deathTimer = 0;
     ghostDist = save.bestDist; ghostT = -1; ghostPassed = false;
-    creditsRun = 0; overdrives = 0; earnedThisRun = []; odHold = 0;
+    creditsRun = 0; overdrives = 0; earnedThisRun = []; odHold = 0; odArms = 0;
+    hideOdPrompt();
     setShield(false);
     boostWrap.classList.remove('ready');
     setHint(HINT_STEER);
@@ -1541,12 +1579,22 @@
 
   function maxDrag() { return Math.max(70, W * 0.26); }
 
-  var hintTimer = null;
   var HINT_STEER = 'Drag anywhere down here to steer';
-  var HINT_BOOST = 'Tap to spend OVERDRIVE';
-  function setHint(text) {
-    steerHint.textContent = text;
-    steerHint.classList.toggle('boost', text === HINT_BOOST);
+  function setHint(text) { steerHint.textContent = text; }
+
+  // The charged prompt lives where you have to tap. The first charge of a run
+  // holds it until it is spent -- that is the one you might not know about;
+  // later charges are a reminder and get out of the way.
+  var promptTimer = null;
+  function showOdPrompt(first) {
+    clearTimeout(promptTimer);
+    odPrompt.classList.toggle('first', !!first);
+    odPrompt.classList.remove('hidden');
+    if (!first) promptTimer = setTimeout(hideOdPrompt, 2600);
+  }
+  function hideOdPrompt() {
+    clearTimeout(promptTimer);
+    odPrompt.classList.add('hidden');
   }
 
   function applyWheel() {
@@ -1901,7 +1949,7 @@
     setShield(false);
     boostWrap.classList.remove('od');
     boostWrap.classList.remove('ready');
-    if (steerHint.classList.contains('boost')) setHint(HINT_STEER);
+    hideOdPrompt();
     invuln = 2.4;
     waveT = -0.5;
     shake = 0;
@@ -1961,10 +2009,7 @@
     startOverlay.classList.add('hidden');
     endOverlay.classList.add('hidden');
     steerHint.style.opacity = '1';
-    setTimeout(function () {
-      // Never fade out the overdrive prompt on the opening timer.
-      if (state === 'playing' && !steerHint.classList.contains('boost')) steerHint.style.opacity = '0';
-    }, 2600);
+    setTimeout(function () { if (state === 'playing') steerHint.style.opacity = '0'; }, 2600);
   }
 
   // Spending the shield has to feel like the crash it replaced, or it reads as
@@ -1993,6 +2038,7 @@
   function crash() {
     if (state !== 'playing') return;
     state = 'dying';
+    hideOdPrompt();          // dead information once the run is over
     pauseBtn.classList.remove('on');
     deathTimer = 0;
     shake = 22;
@@ -2402,18 +2448,17 @@
   // of traffic, or save it for the next surge.
   function armOverdrive() {
     odHold = 0;
+    odArms++;
     boostWrap.classList.add('ready');
+    var first = odArms === 1;
+    // The pill carries the instruction; the banner just announces the state.
+    // Putting "TAP" in both wrapped the banner onto two lines.
     showBanner('OVERDRIVE READY', '#4de2c2');
     sfxArmed();
-    buzz(20);
-    setHint(HINT_BOOST);
-    steerHint.style.opacity = '1';
-    // Newcomers keep the prompt until they spend it; once the tap is known it
-    // is a reminder, not an instruction, so it gets out of the way.
-    clearTimeout(hintTimer);
-    if (save.usedOd) hintTimer = setTimeout(function () {
-      if (steerHint.classList.contains('boost')) steerHint.style.opacity = '0';
-    }, 2400);
+    // A double tick on the first charge of a run, so it is distinguishable by
+    // feel from every other thing that buzzes.
+    buzz(first ? [35, 60, 35] : 20);
+    showOdPrompt(first);
   }
 
   function fireOverdrive() {
@@ -2431,10 +2476,7 @@
     odHold = 0;
     boostWrap.classList.remove('ready');
     boostWrap.classList.add('od');
-    if (steerHint.classList.contains('boost')) {
-      setHint(HINT_STEER);
-      steerHint.style.opacity = '0';
-    }
+    hideOdPrompt();
     showBanner('OVERDRIVE', '#4de2c2');
     sfxOverdrive();
     buzz(45);
