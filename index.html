@@ -706,11 +706,49 @@
     <div class="panel-foot"><button class="play-btn" id="goalsClose">BACK</button></div>
   </div>
 </div>
+
+<!-- A platform SDK (YouTube Playables and most others) has to be loaded before
+     any game code so its globals exist when the game boots. That script tag
+     goes HERE, above the game. Everything the game offers it is gathered in the
+     "host bridge" block at the top of the script below. -->
+
 <script>
 (function () {
   'use strict';
 
   var $ = function (id) { return document.getElementById(id); };
+
+  // ------------------------------------------------------- host bridge
+  // Every embedding platform wants roughly the same four things: tell me when
+  // your first frame is up, tell me when you are playable, tell me when a run
+  // starts and ends. And it wants to be able to pause and mute you.
+  //
+  // Nothing here talks to a platform. These are deliberately empty so that
+  // wiring one up is an edit in this one block plus the script tag above,
+  // rather than surgery through two thousand lines. They are not a guess at
+  // any particular SDK's API -- they are our side of the conversation, and an
+  // adapter maps them onto whatever the SDK actually calls.
+  var HOST = {
+    firstFrameReady: function () {},                 // first frame is on screen
+    gameReady:       function () {},                 // the title screen is live
+    runStarted:      function () {},                 // a run began
+    runEnded:        function (score, distance) {}   // a run finished
+  };
+
+  // The adapter loads before this file, so it cannot call in after boot. It
+  // pre-declares window.BadDriverHost instead and we pick that up here;
+  // anything it supplies replaces the matching no-op. Late attachment is still
+  // possible through BadDriver.on() once boot has run.
+  if (window.BadDriverHost) {
+    for (var hk in HOST) {
+      if (typeof window.BadDriverHost[hk] === 'function') HOST[hk] = window.BadDriverHost[hk];
+    }
+  }
+
+  // The other direction: what a host can do to us. Namespaced rather than
+  // loose globals, and assigned at the end of boot so nothing can be called
+  // before the machinery it touches exists.
+  window.BadDriver = {};
 
   var canvas = $('game');
   var ctx = canvas.getContext('2d');
@@ -2010,6 +2048,7 @@
     endOverlay.classList.add('hidden');
     steerHint.style.opacity = '1';
     setTimeout(function () { if (state === 'playing') steerHint.style.opacity = '0'; }, 2600);
+    HOST.runStarted();
   }
 
   // Spending the shield has to feel like the crash it replaced, or it reads as
@@ -2119,6 +2158,7 @@
 
     endOverlay.classList.remove('hidden');
     updateHud();
+    HOST.runEnded(s, d);
   }
 
   // The cheapest thing still locked, named on the end card. Credits were being
@@ -3562,6 +3602,7 @@
   // ------------------------------------------------------------- loop
   var curSteer = 0;
   var last = performance.now();
+  var signalled = false;
 
   function tick(now) {
     var dt = (now - last) / 1000;
@@ -3600,22 +3641,46 @@
     }
 
     render();
+    if (!signalled) {
+      signalled = true;
+      // One frame later, so this lands after the first render is on screen
+      // rather than merely issued to the context.
+      requestAnimationFrame(function () {
+        HOST.firstFrameReady();
+        HOST.gameReady();
+      });
+    }
     requestAnimationFrame(tick);
   }
 
-  // seed the attract-mode traffic so the title screen is already alive
-  for (var pre = 0; pre < 4; pre++) {
-    spawnWave(true);
-    for (var q = 0; q < obstacles.length; q++) obstacles[q].t += 0.24;
+  function boot() {
+    // seed the attract-mode traffic so the title screen is already alive
+    for (var pre = 0; pre < 4; pre++) {
+      spawnWave(true);
+      for (var q = 0; q < obstacles.length; q++) obstacles[q].t += 0.24;
+    }
+    closePanels();          // own the panel state in code, not just in markup
+    refreshDaily();
+    renderDaily();
+    setMusic(!!save.music);
+    bestVal.textContent = save.best.toLocaleString();
+    bestDistVal.textContent = save.bestDist + ' m';
+    creditsVal.textContent = save.credits;
+
+    // What a host may call in. Published only once everything above exists.
+    window.BadDriver = {
+      pause:   function () { setPaused(true); },
+      resume:  function () { setPaused(false); },
+      setMuted: function (m) { resumeAudio(); setMuted(!!m); },
+      isPlaying: function () { return state === 'playing' && !paused; },
+      // Lets an adapter attach without editing the HOST literal above.
+      on: function (name, fn) { if (typeof fn === 'function' && name in HOST) HOST[name] = fn; }
+    };
+
+    requestAnimationFrame(tick);
   }
-  closePanels();          // own the panel state in code, not just in markup
-  refreshDaily();
-  renderDaily();
-  setMusic(!!save.music);
-  bestVal.textContent = save.best.toLocaleString();
-  bestDistVal.textContent = save.bestDist + ' m';
-  creditsVal.textContent = save.credits;
-  requestAnimationFrame(tick);
+
+  boot();
 })();
 </script>
 </body>
