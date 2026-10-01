@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#070b16">
-<meta name="description" content="Bad Driver — an endless night-driving game. Weave through neon traffic, chain near misses, collect coins and trigger overdrive. Plays in the browser, no install.">
+<meta name="description" content="Bad Driver — an endless night-driving game. Weave through neon traffic, chain near misses, collect cash and trigger overdrive. Plays in the browser, no install.">
 <!-- Lets the page run chromeless when added to a phone's home screen. -->
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -22,10 +22,12 @@
     --amber: #ffc02e;
     --coral: #ff2d46;
     --mint: #2ee6d6;          /* the cover's glowing road edge */
-    /* Credits read in the coin's own top highlight rather than the road's
-       mint. Deliberately not --amber: score is already amber, and the two
-       numbers sit a thumb apart in the HUD. */
-    --credit: #ffe08a;
+    /* Credits are cash, so they read in banknote green. Deliberately a
+       yellow-green rather than the mint: mint is cyan and already means
+       overdrive, your best, and the shield. And deliberately not --amber,
+       which is score and sits a thumb away in the HUD. */
+    --credit: #b8e38c;
+    --cash: #7cc24c;          /* the note itself */
     --ui-bg: rgba(7, 11, 22, 0.74);
     --text: #eef3fa;
     --dim: #93a3bd;
@@ -382,8 +384,8 @@
        buttons, and this one costs money while that one is free. */
     background: transparent;
     color: var(--credit);
-    border: 2px solid var(--amber);
-    box-shadow: 0 0 18px rgba(255,192,46,0.18);
+    border: 2px solid var(--cash);
+    box-shadow: 0 0 18px rgba(124,194,76,0.20);
     margin-bottom: 10px;
   }
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
@@ -394,23 +396,31 @@
      than a glyph: no system font has a ring with a hole this size, and where
      mask is unsupported it degrades to a filled gold disc, which is fine. */
   i.coin {
+    position: relative;
     display: inline-block;
-    width: 0.86em; height: 0.86em;
-    border-radius: 50%;
-    vertical-align: -0.10em;
-    background: linear-gradient(180deg, #ffe08a 0%, #ffc02e 52%, #e59400 100%);
-    -webkit-mask: radial-gradient(circle, transparent 43%, #000 44%);
-            mask: radial-gradient(circle, transparent 43%, #000 44%);
+    width: 1.05em; height: 0.64em;
+    border-radius: 2px;
+    vertical-align: -0.04em;
+    background: linear-gradient(180deg, #d2eeae 0%, #7cc24c 55%, #3a6e28 100%);
+    box-shadow: inset 0 0 0 1px rgba(28,62,18,0.45);
   }
-  /* Gold on the amber buy button or the mint continue button is invisible. */
-  i.coin.on-light { background: linear-gradient(180deg, #4a3a10 0%, #1a1206 60%, #000 100%); }
+  /* The pale window a banknote has in the middle. It is what stops the icon
+     reading as a plain green rectangle at eleven pixels. */
+  i.coin::after {
+    content: ''; position: absolute; inset: 22% 32%;
+    border-radius: 50%;
+    background: rgba(245,255,230,0.55);
+  }
+  /* Green on the amber buy button is invisible. */
+  i.coin.on-light { background: linear-gradient(180deg, #3d5c2a 0%, #16250f 60%, #000 100%); }
+  i.coin.on-light::after { background: rgba(255,255,255,0.3); }
 
   #creditsHud {
     position: absolute;
     top: calc(env(safe-area-inset-top, 0px) + 118px);
     left: 18px;
     background: rgba(7, 11, 22, 0.82);
-    border: 1px solid rgba(255,224,138,0.28);
+    border: 1px solid rgba(184,227,140,0.30);
     border-radius: 999px;
     padding: 4px 12px;
     font-size: 12px;
@@ -482,6 +492,8 @@
   .stat-line { display: flex; align-items: center; gap: 5px; font-size: 9px; color: var(--dim); letter-spacing: 0.04em; }
   .stat-line .bar { flex: 1; height: 3px; background: rgba(255,255,255,0.1); border-radius: 2px; overflow: hidden; }
   .stat-line .bar i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
+  /* CASH is the one stat measured in money, so it is drawn in money. */
+  .stat-line.cash .bar i { background: var(--cash); }
   .car-action { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 6px 0; border-radius: 8px; }
   .car-action.owned { color: var(--dim); }
   .car-action.active { color: var(--mint); }
@@ -529,8 +541,7 @@
   .daily-head { font-size: 9px; letter-spacing: 0.12em; color: var(--amber); font-weight: 700; }
   .daily-card.done .daily-head { color: var(--mint); }
   .daily-text { font-size: 13px; color: var(--text); margin: 3px 0 2px; }
-  .daily-reward { font-size: 11px; font-weight: 700; color: var(--amber); }
-  .daily-card.done .daily-reward { color: var(--credit); }
+  .daily-reward { font-size: 11px; font-weight: 700; color: var(--credit); }
 
   #dailyHud {
     position: absolute;
@@ -571,7 +582,7 @@
   #nextUp .amt { color: var(--credit); font-weight: 700; }
   #nextUp .track { flex: 0 1 120px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; }
   #nextUp .track i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
-  #earned b { color: var(--amber); }
+  #earned b { color: var(--credit); }   /* these are credit amounts, not score */
 
   .hidden { display: none !important; }
 </style>
@@ -631,7 +642,7 @@
 
   <div class="overlay" id="startOverlay">
     <h1 class="logo"><span class="bad">BAD</span><span class="driver">DRIVER</span></h1>
-    <p>Weave through neon traffic. Shave past cars to build your combo, sweep up the coins, and the engine opens up.</p>
+    <p>Weave through neon traffic. Shave past cars to build your combo, sweep up the cash, and the engine opens up.</p>
     <div class="daily-card" id="dailyCard">
       <div class="daily-head">DAILY CHALLENGE</div>
       <div class="daily-text" id="dailyText">&mdash;</div>
@@ -966,7 +977,7 @@
     save.daily.done = true;
     save.credits += DAILY_REWARD;
     earnedThisRun.push({ name: 'Daily Challenge', reward: DAILY_REWARD });
-    showBanner('DAILY DONE  +' + DAILY_REWARD, '#ffe08a');
+    showBanner('DAILY DONE  +' + DAILY_REWARD, '#b8e38c');
     sfxGoal();
     buzz(45);
     persist();
@@ -1774,7 +1785,7 @@
     ];
     return '<div class="car-stats">' + rows.map(function (r) {
       var pct = Math.max(6, Math.min(100, (r[1] - 0.6) / 0.8 * 100));
-      return '<div class="stat-line">' + r[0] +
+      return '<div class="stat-line' + (r[0] === 'CASH' ? ' cash' : '') + '">' + r[0] +
              '<span class="bar"><i style="width:' + pct.toFixed(0) + '%"></i></span></div>';
     }).join('') + '</div>';
   }
@@ -2366,7 +2377,7 @@
     save.credits += gained;
     save.totals.credits += gained;
     score += gained * 5;
-    popup('+' + gained, p.lat >= px ? 1 : -1, '#ffe08a', 14);
+    popup('+' + gained, p.lat >= px ? 1 : -1, '#b8e38c', 14);
     sfxCredit(p.value);
     // No burst, no sparks, no tint. The coin shrinking into the car, the "+N"
     // beside it, the sound and the counter ticking up are the whole feedback —
@@ -2410,7 +2421,7 @@
         save.goals[g.id] = goalLevel(g.id) + 1;
         save.credits += reward;
         earnedThisRun.push({ name: g.name, reward: reward });
-        showBanner(g.name.toUpperCase() + '  +' + reward, '#ffe08a');
+        showBanner(g.name.toUpperCase() + '  +' + reward, '#b8e38c');
         sfxGoal();
         buzz(35);
         awarded = true;
@@ -3403,63 +3414,64 @@
     ctx.save();
     ctx.globalAlpha = a;
     // pool of light on the tarmac
-    ctx.fillStyle = hi ? 'rgba(255,214,90,0.22)' : 'rgba(255,192,46,0.18)';
+    var px0 = xAt(p.lat, p.t);
+    var pool = ctx.createRadialGradient(px0, base, 0, px0, base, r * 1.6);
+    pool.addColorStop(0, hi ? 'rgba(150,225,115,0.30)' : 'rgba(130,205,95,0.22)');
+    pool.addColorStop(1, 'rgba(130,205,95,0)');
+    ctx.save();
+    ctx.translate(px0, base); ctx.scale(1, 0.28); ctx.translate(-px0, -base);
+    ctx.fillStyle = pool;
     ctx.beginPath();
-    ctx.ellipse(xAt(p.lat, p.t), base, r * 1.5, r * 0.45, 0, 0, Math.PI * 2);
+    ctx.arc(px0, base, r * 1.6, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 
     ctx.translate(xAt(p.lat, p.t), y);
 
-    if (hi) {
-      // Same gold ring as a normal coin, just bigger and brighter. Keeping one
-      // shape for "collect" means a pickup can never be read as an obstacle.
-      var pulse = 1 + Math.sin(elapsed * 6 + p.t * 10) * 0.08;
-      ctx.fillStyle = 'rgba(255,214,90,0.26)';
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 2.6 * pulse, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(255,235,150,0.55)';
-      ctx.lineWidth = Math.max(0.8, r * 0.16);
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 1.85 * pulse, 0, Math.PI * 2);
-      ctx.stroke();
+    // Halo, drawn before the spin so it stays round rather than squashing with
+    // the note. A flat disc worked when this was gold -- light on dark reads as
+    // glow -- but green on dark just looked like a plate, so it fades out.
+    var pulse = hi ? 1 + Math.sin(elapsed * 6 + p.t * 10) * 0.07 : 1;
+    var hr = r * (hi ? 2.3 : 1.95) * pulse;
+    var halo = ctx.createRadialGradient(0, 0, r * 0.4, 0, 0, hr);
+    halo.addColorStop(0, hi ? 'rgba(160,235,120,0.34)' : 'rgba(140,215,100,0.26)');
+    halo.addColorStop(0.55, hi ? 'rgba(150,225,115,0.13)' : 'rgba(130,205,95,0.09)');
+    halo.addColorStop(1, 'rgba(130,205,95,0)');
+    ctx.fillStyle = halo;
+    ctx.beginPath();
+    ctx.arc(0, 0, hr, 0, Math.PI * 2);
+    ctx.fill();
 
-      ctx.scale(spin, 1);
-      var hg = ctx.createLinearGradient(0, -r, 0, r);
-      hg.addColorStop(0, '#fff3c4');
-      hg.addColorStop(0.5, '#ffd23d');
-      hg.addColorStop(1, '#f0a400');
-      ctx.fillStyle = hg;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.4, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
-    } else {
-      // Gold ring coin, spun edge-on.
-      ctx.fillStyle = 'rgba(255,192,46,0.22)';
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 2.2, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.scale(spin, 1);
-      var rg = ctx.createLinearGradient(0, -r, 0, r);
-      rg.addColorStop(0, '#ffe08a');
-      rg.addColorStop(0.5, '#ffc02e');
-      rg.addColorStop(1, '#e59400');
-      ctx.fillStyle = rg;
-      ctx.beginPath();
-      ctx.arc(0, 0, r, 0, Math.PI * 2);
-      ctx.fill();
-      // punched centre makes it read as a ring rather than a disc
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.42, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.globalCompositeOperation = 'source-over';
+    // A banknote is flat, so the same spin that used to turn a coin edge-on
+    // now flips a note -- which is what a note actually does in the air.
+    ctx.scale(spin, 1);
+    var nw = r * 2.3, nh = r * 1.3, rad = r * 0.16;
+
+    // A high-value pickup is a bundle: two more notes behind the top one.
+    if (hi) {
+      ctx.fillStyle = '#44802c';
+      roundRect(-nw / 2 - r * 0.17, -nh / 2 - r * 0.30, nw, nh, rad); ctx.fill();
+      ctx.fillStyle = '#5a9c38';
+      roundRect(-nw / 2 - r * 0.09, -nh / 2 - r * 0.15, nw, nh, rad); ctx.fill();
     }
+
+    var ng = ctx.createLinearGradient(0, -nh / 2, 0, nh / 2);
+    ng.addColorStop(0, hi ? '#e4f8c9' : '#d2eeae');
+    ng.addColorStop(0.55, hi ? '#8ccf5c' : '#7cc24c');
+    ng.addColorStop(1, hi ? '#44802c' : '#3a6e28');
+    ctx.fillStyle = ng;
+    roundRect(-nw / 2, -nh / 2, nw, nh, rad); ctx.fill();
+
+    // the pale window in the middle of a note, and a dark edge so the thing
+    // reads as an object rather than a green smear at distance
+    ctx.fillStyle = 'rgba(243,255,228,0.5)';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, nw * 0.19, nh * 0.29, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(26,58,16,0.55)';
+    ctx.lineWidth = Math.max(0.5, r * 0.1);
+    roundRect(-nw / 2, -nh / 2, nw, nh, rad); ctx.stroke();
+
     ctx.restore();
   }
 

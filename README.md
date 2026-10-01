@@ -1,7 +1,7 @@
 # Bad Driver
 
 A single-file, mobile-first endless driving game with a neon-noir look. Weave
-through night traffic, shave past cars to build a combo, sweep up coins, and see
+through night traffic, shave past cars to build a combo, sweep up the cash, and see
 how far the run goes before you wreck.
 
 ## Play
@@ -82,10 +82,15 @@ friction is what stops people playing "one more".
 
 ## Credits, goals and the garage
 
-- **Credits** are laid down in trails along a lane, so collecting them is a
-  line to drive rather than a dot to clip. A trail placed beside traffic is
-  worth three times as much — that is the whole risk decision. Overdrive
-  widens the pickup radius, so a hot streak sweeps the lane clean.
+- **Credits** are banknotes, laid down in trails along a lane, so collecting
+  them is a line to drive rather than a dot to clip. A trail placed beside
+  traffic is worth three times as much and arrives as a banded bundle rather
+  than a single note — that is the whole risk decision. Overdrive widens the
+  pickup radius, so a hot streak sweeps the lane clean.
+
+  Money has its own colour throughout, kept clear of the other two the HUD
+  uses: `--credit` (pale banknote green) for every amount, `--cash` for the
+  note itself, against amber for score and mint for your best.
 - **Goals** are nine tiered objectives (distance in a run, near-miss chains,
   overdrives, top speed, lifetime totals) that pay out in credits. They are
   checked live, so the payout lands in the moment you earn it, and the run's
