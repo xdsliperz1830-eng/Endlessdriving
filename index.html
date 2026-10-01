@@ -389,6 +389,16 @@
     margin-bottom: 10px;
   }
   .restart-hint { font-size: 11px; color: #6b7385; margin-top: 16px; letter-spacing: 0.04em; }
+  /* A phone has no SPACE bar, and this game is played on one far more often
+     than not. Naming a key that is not there reads as an instruction the
+     player cannot follow, so each hint carries both wordings and the pointer
+     decides. Coarse-and-hoverless is the honest test for "finger only": a
+     touchscreen laptop keeps the keyboard wording, which is right. */
+  .touch-hint { display: none; }
+  @media (hover: none) and (pointer: coarse) {
+    .key-hint { display: none; }
+    .touch-hint { display: inline; }
+  }
 
   /* ---------------- Credits / garage / goals ---------------- */
   /* The credits icon is the pickup's own gradient and hole proportions, so the
@@ -661,14 +671,14 @@
       <button class="ghost-btn" id="garageBtn">GARAGE</button>
       <button class="ghost-btn" id="goalsBtn">GOALS</button>
     </div>
-    <div class="restart-hint">SPACE or tap to drive</div>
+    <div class="restart-hint"><span class="key-hint">SPACE or tap to drive</span><span class="touch-hint">Tap to drive</span></div>
   </div>
 
   <div class="overlay hidden" id="pauseOverlay">
     <h1>PAUSED</h1>
     <p>Your run is on hold. Nothing is moving.</p>
     <button class="play-btn" id="resumeBtn">RESUME</button>
-    <div class="restart-hint">P, ESC or tap to resume</div>
+    <div class="restart-hint"><span class="key-hint">P, ESC or tap to resume</span><span class="touch-hint">Tap to resume</span></div>
   </div>
 
   <div class="overlay hidden" id="endOverlay">
@@ -699,7 +709,7 @@
       <button class="ghost-btn" id="garageBtn2">GARAGE</button>
       <button class="ghost-btn" id="goalsBtn2">GOALS</button>
     </div>
-    <div class="restart-hint">SPACE or tap anywhere</div>
+    <div class="restart-hint"><span class="key-hint">SPACE or tap anywhere</span><span class="touch-hint">Tap anywhere</span></div>
   </div>
 
   <div class="panel hidden" id="garagePanel">
