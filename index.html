@@ -573,7 +573,10 @@
   }
   #shieldHud.hidden { display: none; }
 
-  #earned { font-size: 12px; color: var(--credit); margin: 0 0 12px; min-height: 0; }
+  /* flex: none matters. As a shrinkable column item this collapsed to zero
+     height while its text carried on painting -- straight over the buttons
+     underneath it. */
+  #earned { font-size: 12px; color: var(--credit); margin: 0 0 12px; flex: 0 0 auto; }
   #nextUp {
     font-size: 12px; color: var(--dim); margin: 0 0 14px;
     display: flex; align-items: center; gap: 8px; justify-content: center;
@@ -934,6 +937,7 @@
     { stat: 'mult',  text: 'Reach a \u00d7{t} multiplier',        targets: [4, 5, 6, 7] }
   ];
   var DAILY_REWARD = 500;
+  var EARN_ROWS = 5;        // goal lines on the end card before they are summarised
 
   function todayKey() {
     var d = new Date();
@@ -2148,9 +2152,26 @@
     var lines = [];
     if (creditsRun > 0) lines.push('Collected <b>' + COIN + ' ' + creditsRun + '</b>');
     if (earnedThisRun.length) {
-      lines.push(earnedThisRun.map(function (g) {
-        return g.name + ' <b>+' + g.reward.toLocaleString() + '</b>';
-      }).join('<br>'));
+      // Goals are tiered, so a long run clears the same one several times: a
+      // ten-minute run banked 38 payouts, which listed one per line ran off
+      // the card and painted over the buttons. Group by goal, then cap.
+      var byName = {}, order = [];
+      earnedThisRun.forEach(function (g) {
+        if (!byName[g.name]) { byName[g.name] = { n: 0, total: 0 }; order.push(g.name); }
+        byName[g.name].n++;
+        byName[g.name].total += g.reward;
+      });
+      order.sort(function (a, b) { return byName[b].total - byName[a].total; });
+      var shown = order.slice(0, EARN_ROWS).map(function (name) {
+        var g = byName[name];
+        return name + (g.n > 1 ? ' \u00d7' + g.n : '') + ' <b>+' + g.total.toLocaleString() + '</b>';
+      });
+      var rest = order.slice(EARN_ROWS);
+      if (rest.length) {
+        var more = rest.reduce(function (sum, n) { return sum + byName[n].total; }, 0);
+        shown.push('and ' + rest.length + ' more <b>+' + more.toLocaleString() + '</b>');
+      }
+      lines.push(shown.join('<br>'));
     }
     earned.innerHTML = lines.join('<br>');
 
