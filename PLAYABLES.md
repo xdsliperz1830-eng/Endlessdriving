@@ -48,6 +48,14 @@ events only — no keyboard anywhere in the mobile suite:
   thumbnails all stay bounded.
 - **Pausing.** The game pauses itself on `visibilitychange` and on window blur,
   so a host that hides the frame without telling us costs nobody a run.
+- **SHARE degrades inside a frame.** A cross-origin frame that was not given
+  `allow="web-share"` still exposes `navigator.share`, and every call rejects.
+  The button falls through to the clipboard, and says `COPY FAILED` if that is
+  blocked too, rather than going silent. Dismissing the share sheet copies
+  nothing.
+- **No hint names a key that is not there.** The three "press SPACE" hints
+  switch to tap wording on a coarse, hoverless pointer, and keep the key on a
+  machine that has one.
 - **Gameplay fairness.** Across ten scripted player profiles — including ones
   that hug a wall, never steer, or graze every car — no wave ever spawns with
   all lanes blocked.
