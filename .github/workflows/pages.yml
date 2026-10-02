@@ -91,12 +91,15 @@ jobs:
         uses: actions/configure-pages@v5
 
       - name: Assemble site
-        # The game is one self-contained file; publish just that rather than
-        # serving the README and workflow alongside it.
+        # The game is one self-contained file, plus the manifest and icons a
+        # phone needs to make a home-screen shortcut. Publish those rather than
+        # serving the README, the workflow and the screenshots alongside them.
         run: |
-          mkdir -p _site
-          cp index.html _site/index.html
+          mkdir -p _site/icons
+          cp index.html manifest.webmanifest _site/
+          cp icons/icon-32.png icons/icon-180.png icons/icon-192.png icons/icon-512.png _site/icons/
           touch _site/.nojekyll
+          find _site -type f | sort
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

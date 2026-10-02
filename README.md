@@ -7,8 +7,10 @@ how far the run goes before you wreck.
 ## Play
 
 Open `index.html` in any modern browser — no build step, no bundler, no
-dependencies, no assets. The whole game (markup, styles, logic, and sound)
-lives in that one file, and loading it makes exactly one network request.
+dependencies. The whole game (markup, styles, logic, and sound) lives in that
+one file, and opening it on its own fetches nothing else. The only other files
+in the repo are the home-screen icons and the manifest that names them, which a
+browser fetches only when the page is the top-level document.
 
 To serve it locally:
 
@@ -19,7 +21,8 @@ python3 -m http.server 8000
 
 ## Hosting on GitHub Pages
 
-`.github/workflows/pages.yml` publishes `index.html` to GitHub Pages on every
+`.github/workflows/pages.yml` publishes `index.html`, the manifest and the
+icons to GitHub Pages on every
 push to the default branch, and can be run by hand from the Actions tab. Once
 it succeeds the game is live at:
 
@@ -41,6 +44,28 @@ as-is rather than running them through Jekyll.
 The page is entirely self-contained, so it works correctly from the
 `/Endlessdriving/` sub-path Pages serves it from — there are no absolute paths
 or external resources to break.
+
+## Adding it to a phone home screen
+
+Open the page in the phone's browser and use **Add to Home Screen** (iOS:
+Share → Add to Home Screen; Android Chrome: ⋮ → Add to Home screen). It gets
+the road-and-car icon rather than a screenshot of the page, and opens without
+browser chrome.
+
+The pieces that make that work:
+
+| File | Who reads it |
+| --- | --- |
+| `manifest.webmanifest` | Android/Chrome — name, colours, `display: standalone`, and the icons |
+| `icons/icon-192.png`, `icons/icon-512.png` | Chrome, for the shortcut and the splash; the 512 doubles as the maskable icon |
+| `icons/icon-180.png` | iOS, via `<link rel="apple-touch-icon">` |
+| `icons/icon-32.png` | the browser tab, for anything that wants a PNG |
+| inline SVG `<link rel="icon">` | the tab, with no request at all |
+
+`icons/icon.svg` is the source the PNGs are rendered from. The artwork is the
+game's own view — road running to a vanishing point, car on it — drawn with
+nothing finer than a few pixels at 32px, and with everything that matters
+inside the central circle Android crops a maskable icon to.
 
 ## Controls
 
@@ -120,9 +145,10 @@ friction is what stops people playing "one more".
 
 ## Embedding it in a platform
 
-The game is a single self-contained file that makes exactly one network
-request, which is what most playable-ad and platform surfaces (YouTube
-Playables among them) require. What they also require is a lifecycle
+The game is a single self-contained file, which is what most playable-ad and
+platform surfaces (YouTube Playables among them) require. Embedded in a frame
+it is exactly one request: a manifest is only processed for a top-level
+document, so the home-screen icons cost an embed nothing. What they also require is a lifecycle
 conversation, and there is one place to wire that up.
 
 **Where the SDK goes.** A platform SDK has to load before any game code so its

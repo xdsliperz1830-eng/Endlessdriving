@@ -25,9 +25,12 @@ passed review once can quietly start failing later.
 Driven by automated passes against the real game in headless Chromium, touch
 events only — no keyboard anywhere in the mobile suite:
 
-- **Self-contained.** Loading the game makes exactly one network request (the
-  document). Zero off-site requests, with `data:` URIs — the garage car
-  thumbnails — correctly excluded from that count, since they are inline.
+- **Self-contained.** Zero off-site requests, with `data:` URIs — the garage
+  car thumbnails — correctly excluded from that count, since they are inline.
+  Inside a frame the game is exactly one request: a manifest is only processed
+  for a top-level document, so the home-screen icons cost an embed nothing. At
+  the top level Chrome also fetches the manifest and one icon, both of which
+  are in the archive.
 - **Touch-only play.** Title, garage (buying and selecting a car), goals,
   starting, steering, pause/resume, music and mute toggles, the end card,
   CONTINUE, share, and DRIVE AGAIN are all reachable and operable by tap and
@@ -70,8 +73,9 @@ events only — no keyboard anywhere in the mobile suite:
   trust a signature written from memory.
 - **Partner access.** YouTube Playables is invitation-only. Submission needs an
   onboarded partner account, which is an account action, not a code change.
-- **Store assets and metadata.** Title, description, age rating and icon are a
-  submission form, not part of the build. Screenshots are in `press/`, captured
+- **Store assets and metadata.** Title, description and age rating are a
+  submission form, not part of the build. The icon exists: `icons/icon-512.png`,
+  rendered from `icons/icon.svg`. Screenshots are in `press/`, captured
   from the running game at a real phone viewport (390x844 CSS px at
   device-pixel-ratio 3, so 1170x2532) and in landscape: the title screen, the
   garage, a run in traffic, the end card, and landscape play. The two action

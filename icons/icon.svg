@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- The game's own view, cropped square: a road running to a vanishing point
+       with the car you drive on it.
+
+       Two constraints shaped it. It has to survive 32px, so nothing here is
+       finer than a few pixels at that size - no skyline windows, no wheels, no
+       badge. And Android masks icons to a circle 80% of the width, so
+       everything that carries the picture sits inside a circle of radius ~200
+       about the centre; only the sky and the road run to the edges, where
+       losing a corner costs nothing. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#091026"/>
+      <stop offset="1" stop-color="#101d47"/>
+    </linearGradient>
+    <linearGradient id="tarmac" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#141a2c"/>
+      <stop offset="1" stop-color="#272e42"/>
+    </linearGradient>
+    <linearGradient id="body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"   stop-color="#e2eef7"/>
+      <stop offset="0.55" stop-color="#aec4d6"/>
+      <stop offset="1"   stop-color="#63819a"/>
+    </linearGradient>
+    <radialGradient id="pool" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#2ee6d6" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#2ee6d6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="haze" cx="0.5" cy="0.42" r="0.55">
+      <stop offset="0" stop-color="#2ee6d6" stop-opacity="0.20"/>
+      <stop offset="1" stop-color="#2ee6d6" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <rect width="512" height="512" fill="#070b16"/>
+  <rect width="512" height="198" fill="url(#sky)"/>
+
+  <!-- the road, and the glow it throws back at the camera -->
+  <path d="M256 198 L-40 512 L552 512 Z" fill="url(#tarmac)"/>
+  <rect y="150" width="512" height="190" fill="url(#haze)"/>
+
+  <!-- edge lines: the one shape that still reads at 32px, so they get a wide
+       soft pass underneath and a hard one on top -->
+  <g fill="none" stroke-linecap="round">
+    <path d="M256 200 L-28 512" stroke="#2ee6d6" stroke-width="34" opacity="0.18"/>
+    <path d="M256 200 L540 512" stroke="#2ee6d6" stroke-width="34" opacity="0.18"/>
+    <path d="M256 200 L-28 512" stroke="#2ee6d6" stroke-width="13"/>
+    <path d="M256 200 L540 512" stroke="#2ee6d6" stroke-width="13"/>
+  </g>
+
+  <!-- lane dashes, opening out with distance -->
+  <g stroke="#eaf0f8" stroke-linecap="round" fill="none">
+    <path d="M226 236 L222 252" stroke-width="4"  opacity="0.28"/>
+    <path d="M286 236 L290 252" stroke-width="4"  opacity="0.28"/>
+    <path d="M206 284 L196 310" stroke-width="7"  opacity="0.46"/>
+    <path d="M306 284 L316 310" stroke-width="7"  opacity="0.46"/>
+    <path d="M166 462 L146 500" stroke-width="13" opacity="0.62"/>
+    <path d="M346 462 L366 500" stroke-width="13" opacity="0.62"/>
+  </g>
+
+  <!-- the car, sitting in its own light -->
+  <ellipse cx="256" cy="414" rx="132" ry="46" fill="url(#pool)"/>
+  <g>
+    <rect x="180" y="328" width="152" height="86" rx="24" fill="url(#body)"/>
+    <rect x="202" y="340" width="108" height="34" rx="13" fill="#17223a"/>
+    <rect x="196" y="388" width="38" height="15" rx="7" fill="#ff2d46"/>
+    <rect x="278" y="388" width="38" height="15" rx="7" fill="#ff2d46"/>
+    <rect x="243" y="391" width="26" height="9"  rx="4" fill="#cdd9e4"/>
+  </g>
+</svg>
