@@ -70,9 +70,13 @@ events only — no keyboard anywhere in the mobile suite:
   trust a signature written from memory.
 - **Partner access.** YouTube Playables is invitation-only. Submission needs an
   onboarded partner account, which is an account action, not a code change.
-- **Store assets and metadata.** Title, description, age rating, icon and
-  screenshots are a submission form, not part of the build. Screenshots can be
-  taken straight from the running game.
+- **Store assets and metadata.** Title, description, age rating and icon are a
+  submission form, not part of the build. Screenshots are in `press/`, captured
+  from the running game at a real phone viewport (390x844 CSS px at
+  device-pixel-ratio 3, so 1170x2532) and in landscape: the title screen, the
+  garage, a run in traffic, the end card, and landscape play. The two action
+  shots are the last frame before a genuine crash, which is why the road is
+  full in them; nothing is composited or retouched.
 - **Real-device fill rate.** Frame cost was measured in headless Chromium,
   which software-rasterises the canvas and so says nothing useful about GPU
   fill rate. The game is cheap in JS (sub-millisecond per frame with the canvas

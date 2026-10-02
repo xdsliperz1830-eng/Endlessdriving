@@ -172,6 +172,9 @@ These names are the game's side of the conversation, deliberately not a guess
 at any particular SDK's API — an adapter maps them onto whatever the platform
 actually calls.
 
+For packaging and submission — building the archive, and what has and has not
+been checked — see [PLAYABLES.md](PLAYABLES.md).
+
 ## Tech
 
 Plain HTML, CSS, and JavaScript rendering to one `<canvas>`, with a
