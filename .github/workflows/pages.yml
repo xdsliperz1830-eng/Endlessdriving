@@ -98,6 +98,10 @@ jobs:
           mkdir -p _site/icons
           cp index.html manifest.webmanifest _site/
           cp icons/icon-32.png icons/icon-180.png icons/icon-192.png icons/icon-512.png _site/icons/
+          # iOS looks for /apple-touch-icon.png at the site root when no link
+          # tag resolves. Belt and braces: the link tag names the same file.
+          cp icons/icon-180.png _site/apple-touch-icon.png
+          cp icons/icon-180.png _site/apple-touch-icon-precomposed.png
           touch _site/.nojekyll
           find _site -type f | sort
 

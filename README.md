@@ -61,8 +61,16 @@ The pieces that make that work:
 | `icons/icon-180.png` | iOS, via `<link rel="apple-touch-icon">` |
 | `icons/icon-32.png` | the browser tab, for anything that wants a PNG |
 | inline SVG `<link rel="icon">` | the tab, with no request at all |
+| `/apple-touch-icon.png` at the site root | iOS again, when no link tag resolves — the Pages deploy puts a copy there |
 
-`icons/icon.svg` is the source the PNGs are rendered from. The artwork is the
+`icons/icon.svg` is the source the PNGs are rendered from — by drawing it into
+a canvas of the target size, not by screenshotting a page sized to match. The
+screenshot route is viewport-dependent and got it wrong silently: the 180 and
+192 shipped once with the artwork at a third scale in the top-left corner and
+white around it, which is what iOS then put on the home screen. The QA suite now
+decodes each shipped PNG and checks its size, that the corners are the night
+background rather than white, that it is fully opaque, and that the car actually
+drew. The artwork is the
 game's own view — road running to a vanishing point, car on it — drawn with
 nothing finer than a few pixels at 32px, and with everything that matters
 inside the central circle Android crops a maskable icon to.

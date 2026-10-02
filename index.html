@@ -13,15 +13,18 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="Bad Driver">
 <meta property="og:description" content="Weave through neon traffic, chain near misses, trigger overdrive. How far can you get?">
-<!-- The tab icon stays inline, so a bare index.html still has one and costs no
-     extra request. The home-screen icons are real files instead: a URL is the
-     only form both platforms document for apple-touch-icon and for manifest
-     icons, and data URIs are not dependably accepted for either. They ship
-     inside the submission archive, so nothing is fetched off-site. -->
+<!-- Home-screen icons first, so nothing else can be mistaken for one. iOS
+     shipped a white tile with a thumbnail in the corner when it fell through
+     to a small icon, so the 180 is declared ahead of everything, and the Pages
+     deploy also drops a copy at /apple-touch-icon.png, which is where iOS
+     looks when no link resolves. -->
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
+<link rel="apple-touch-icon-precomposed" sizes="180x180" href="icons/icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<!-- Tab icons. The SVG stays inline so a bare index.html has one at no extra
+     request; the PNG is there for anything that will not take an SVG. -->
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=&#39;http://www.w3.org/2000/svg&#39; viewBox=&#39;0 0 32 32&#39;%3E%3Crect width=&#39;32&#39; height=&#39;32&#39; rx=&#39;7&#39; fill=&#39;%23070b16&#39;/%3E%3Cpath d=&#39;M0 7h32v6H0z&#39; fill=&#39;%23101d47&#39;/%3E%3Cpath d=&#39;M16 12 L-2 32 L34 32 Z&#39; fill=&#39;%23222a3e&#39;/%3E%3Cg fill=&#39;none&#39; stroke=&#39;%232ee6d6&#39; stroke-width=&#39;2&#39; stroke-linecap=&#39;round&#39;%3E%3Cpath d=&#39;M16 12.5 L-1 31&#39;/%3E%3Cpath d=&#39;M16 12.5 L33 31&#39;/%3E%3C/g%3E%3Crect x=&#39;9.5&#39; y=&#39;19&#39; width=&#39;13&#39; height=&#39;7.5&#39; rx=&#39;2.6&#39; fill=&#39;%23c6d8e6&#39;/%3E%3Crect x=&#39;11.6&#39; y=&#39;20&#39; width=&#39;8.8&#39; height=&#39;3&#39; rx=&#39;1.2&#39; fill=&#39;%2317223a&#39;/%3E%3Crect x=&#39;10.8&#39; y=&#39;24&#39; width=&#39;3.4&#39; height=&#39;1.5&#39; rx=&#39;.7&#39; fill=&#39;%23ff2d46&#39;/%3E%3Crect x=&#39;17.8&#39; y=&#39;24&#39; width=&#39;3.4&#39; height=&#39;1.5&#39; rx=&#39;.7&#39; fill=&#39;%23ff2d46&#39;/%3E%3C/svg%3E">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
-<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
-<link rel="manifest" href="manifest.webmanifest">
 <title>Bad Driver</title>
 <style>
   :root {
