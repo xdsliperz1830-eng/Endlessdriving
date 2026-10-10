@@ -443,7 +443,8 @@
     border-radius: 50%;
     background: rgba(245,255,230,0.55);
   }
-  /* Green on the amber buy button is invisible. */
+  /* A green note on a bright fill disappears into it, so the one place that
+     happens -- the garage's buy button -- gets a note in shadow instead. */
   i.coin.on-light { background: linear-gradient(180deg, #3d5c2a 0%, #16250f 60%, #000 100%); }
   i.coin.on-light::after { background: rgba(255,255,255,0.3); }
 
@@ -529,7 +530,11 @@
   .car-action { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; padding: 6px 0; border-radius: 8px; }
   .car-action.owned { color: var(--dim); }
   .car-action.active { color: var(--mint); }
-  .car-action.buy { background: var(--amber); color: #1a1206; }
+  /* A price you can afford. It was amber, left over from when the currency was
+     gold coins, which left the garage saying 2,000 in cash green on the car you
+     cannot buy and 750 in gold on the one you can -- the wrong way round and
+     two currencies at once. Money is money: it is the note's own green. */
+  .car-action.buy { background: var(--cash); color: #0e2206; }
   .car-action.need { color: #6b7385; }
 
   .goal-row {
@@ -616,7 +621,9 @@
   #nextUp b { color: var(--amber); font-weight: 700; }
   #nextUp .amt { color: var(--credit); font-weight: 700; }
   #nextUp .track { flex: 0 1 120px; height: 3px; background: rgba(255,255,255,0.12); border-radius: 2px; }
-  #nextUp .track i { display: block; height: 100%; background: var(--amber); border-radius: 2px; }
+  /* This one fills toward a price, with the shortfall printed next to it in
+     cash green -- so the bar is money too, not goal progress. */
+  #nextUp .track i { display: block; height: 100%; background: var(--cash); border-radius: 2px; }
   #earned b { color: var(--credit); }   /* these are credit amounts, not score */
 
   .hidden { display: none !important; }
@@ -935,7 +942,7 @@
     { id: 'close_shave', name: 'Close Shave',  unit: '',       scope: 'run',  stat: 'near',
       desc: '{t} near misses in one run', tiers: ladder(10, 100, 2, 1.6, 7) },
     { id: 'collector',   name: 'Collector',    unit: '',       scope: 'life', stat: 'credits',
-      desc: 'Collect {t} credits in total', tiers: ladder(100, 100, 3, 1.7, 8) },
+      desc: 'Collect {t} in cash, all runs', tiers: ladder(100, 100, 3, 1.7, 8) },
     { id: 'chain_gang',  name: 'Chain Gang',   unit: '',       scope: 'run',  stat: 'mult',
       desc: 'Reach a \u00d7{t} multiplier',   tiers: [[5, 125], [6, 200], [7, 320], [8, 500]] },
     { id: 'overdriven',  name: 'Overdriven',   unit: '',       scope: 'run',  stat: 'od',
@@ -962,7 +969,7 @@
   var DAILY = [
     { stat: 'dist',  text: 'Travel {t}m in a single run',     targets: [1200, 1800, 2600, 3500] },
     { stat: 'near',  text: 'Shave past {t} cars in one run',  targets: [12, 18, 25, 35] },
-    { stat: 'coins', text: 'Collect {t} credits in one run',  targets: [60, 100, 150, 220] },
+    { stat: 'coins', text: 'Collect {t} in cash in one run',  targets: [60, 100, 150, 220] },
     { stat: 'od',    text: 'Trigger overdrive {t}x in a run', targets: [2, 3, 4, 5] },
     { stat: 'speed', text: 'Reach {t} km/h',                  targets: [420, 500, 580, 660] },
     { stat: 'score', text: 'Score {t} in a single run',       targets: [8000, 15000, 26000, 40000] },
